@@ -1,0 +1,68 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Bebas+Neue&display=swap');
+
+:root {
+  --bg:          #ffffff;
+  --bg2:         #f5f5f5;
+  --bg3:         #efefef;
+  --bg4:         #e8e8e8;
+  --bg5:         #d8d8d8;
+  --border:      rgba(0,0,0,0.07);
+  --border2:     rgba(0,0,0,0.13);
+  --border3:     rgba(0,0,0,0.22);
+  --text:        #111111;
+  --text2:       #666666;
+  --text3:       #aaaaaa;
+  --green:       #16a34a;
+  --green-light: #22c55e;
+  --green-bg:    rgba(22,163,74,0.08);
+  --green-border:rgba(22,163,74,0.25);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-font-smoothing: antialiased; }
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 99px; }
+
+@keyframes pulse-dot {
+  0%,100% { opacity:1; transform:scale(1); }
+  50%      { opacity:0.4; transform:scale(0.7); }
+}
+@keyframes fade-in {
+  from { opacity:0; transform:translateY(5px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+@keyframes slide-up {
+  from { opacity:0; transform:translateY(14px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.animate-fade-in  { animation: fade-in  0.25s ease forwards; }
+.animate-slide-up { animation: slide-up 0.35s ease forwards; }
+
+.stagger > *:nth-child(1) { animation: slide-up 0.35s ease forwards; animation-delay:0ms; opacity:0; }
+.stagger > *:nth-child(2) { animation: slide-up 0.35s ease forwards; animation-delay:60ms; opacity:0; }
+.stagger > *:nth-child(3) { animation: slide-up 0.35s ease forwards; animation-delay:120ms; opacity:0; }
+.stagger > *:nth-child(4) { animation: slide-up 0.35s ease forwards; animation-delay:180ms; opacity:0; }
+.stagger > *:nth-child(5) { animation: slide-up 0.35s ease forwards; animation-delay:240ms; opacity:0; }
+.stagger > *:nth-child(6) { animation: slide-up 0.35s ease forwards; animation-delay:300ms; opacity:0; }
+
+button, a { transition: opacity 0.15s, background-color 0.15s, border-color 0.15s, color 0.15s, transform 0.1s; }
+button:active { transform: scale(0.97); }
+:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
