@@ -36,9 +36,20 @@ interface Tournament { id: string; name: string; status: string; pairs_count: nu
 interface Zone { id: string; name: string; order_num: number }
 interface Pair { id: string; display_name: string }
 interface Match {
-  id: string; pair1_id: string; pair2_id: string; zone_id: string
-  scheduled_time: string | null; court: string | null; status: string
-  day: string | null; score: any
+  id: string
+  pair1_id: string | null
+  pair2_id: string | null
+  zone_id: string | null
+  round: string
+  match_order: number | null
+  scheduled_time: string | null
+  court: string | null
+  status: string
+  day: string | null
+  score: any
+  winner_pair_id: string | null
+  winner_goes_to_match?: number | null
+  winner_goes_to_slot?: number | null
 }
 
 export default function Admin() {
@@ -452,15 +463,6 @@ export default function Admin() {
     }
   }
 
-  function timeToMinutes(t: string) {
-    const [h, m] = t.split(':').map(Number)
-    return h * 60 + (m || 0)
-  }
-  function minutesToTime(mins: number) {
-    const h = Math.floor(mins / 60) % 24
-    const m = mins % 60
-    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`
-  }
 
   async function handleSetMatchStatus() {
     if (!liveMatchId) { setFb5a('⚠ Seleccioná un partido.'); return }

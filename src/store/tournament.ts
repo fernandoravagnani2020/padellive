@@ -42,16 +42,18 @@ export interface Match {
   id: string
   tournament_id: string
   zone_id: string | null
-  round: 'groups' | 'quarters' | 'semis' | 'final'
+  round: string
   match_order: number | null
-  pair1_id: string
-  pair2_id: string
+  pair1_id: string | null
+  pair2_id: string | null
   winner_pair_id: string | null
   court: string | null
   day: string | null
   scheduled_time: string | null
-  status: 'upcoming' | 'live' | 'done'
+  status: string
   score: SetScore[] | null
+  winner_goes_to_match?: number | null
+  winner_goes_to_slot?: number | null
 }
 
 export interface Standing {

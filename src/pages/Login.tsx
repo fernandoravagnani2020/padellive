@@ -114,7 +114,7 @@ export default function Login() {
             style={{
               width: '100%', background: loading ? '#86efac' : '#16a34a',
               color: '#fff', border: 'none', borderRadius: 8,
-              padding: '12px', fontSize: 15, fontWeight: 600,
+              padding: '12px', fontWeight: 600,
               cursor: loading ? 'not-allowed' : 'pointer',
               fontFamily: "'Bebas Neue', sans-serif",
               letterSpacing: '0.06em', fontSize: 17,
