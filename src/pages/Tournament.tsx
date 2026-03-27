@@ -6,8 +6,6 @@ import { ScheduleTab, ResultsTab, BracketTab, InfoTab } from '../components/Tabs
 
 const TABS = [
   { id: 'zonas',      label: 'Zonas'      },
-  { id: 'horarios',   label: 'Horarios'   },
-  { id: 'resultados', label: 'Resultados' },
   { id: 'bracket',    label: 'Cuadro'     },
   { id: 'info',       label: 'Info'       },
 ]
@@ -82,8 +80,6 @@ export default function Tournament() {
       {/* Content con fade al cambiar tab */}
       <div className="animate-fade-in" key={activeTab}>
         {activeTab === 'zonas'      && <ZonesTab />}
-        {activeTab === 'horarios'   && <ScheduleTab />}
-        {activeTab === 'resultados' && <ResultsTab />}
         {activeTab === 'bracket'    && <BracketTab />}
         {activeTab === 'info'       && <InfoTab />}
       </div>

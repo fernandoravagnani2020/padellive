@@ -254,11 +254,12 @@ function BracketMatchCard({ m, getPairName }: BracketMatchCardProps) {
 }
 // ConnectorCol — dibuja líneas SVG respetando el ruteo winner_goes_to_match/slot
 function ConnectorCol({
-  matchesInRound, matchesInNext, routing = [],
+  matchesInRound, matchesInNext, routing = [], nextCount,
 }: {
   matchesInRound: number
   matchesInNext: number
   routing?: { toMatch: number | null; toSlot: number | null }[]
+  nextCount: number
 }) {
   function colHeight(n: number) { return n * MATCH_H + (n - 1) * MATCH_GAP }
   function matchCenterCurrent(idx: number) { return idx * (MATCH_H + MATCH_GAP) + MATCH_H / 2 }

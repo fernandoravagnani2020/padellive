@@ -254,12 +254,11 @@ function BracketMatchCard({ m, getPairName }: BracketMatchCardProps) {
 }
 // ConnectorCol — dibuja líneas SVG respetando el ruteo winner_goes_to_match/slot
 function ConnectorCol({
-  matchesInRound, matchesInNext, routing = [], nextCount,
+  matchesInRound, matchesInNext, routing = [],
 }: {
   matchesInRound: number
   matchesInNext: number
   routing?: { toMatch: number | null; toSlot: number | null }[]
-  nextCount: number
 }) {
   function colHeight(n: number) { return n * MATCH_H + (n - 1) * MATCH_GAP }
   function matchCenterCurrent(idx: number) { return idx * (MATCH_H + MATCH_GAP) + MATCH_H / 2 }
@@ -550,9 +549,9 @@ export function InfoTab() {
       {prize && (prize.first || prize.second || prize.third) && (
         <div style={{ background:'#fff', border:'1px solid rgba(0,0,0,0.08)', borderRadius:12, overflow:'hidden', marginBottom:16, boxShadow:'0 1px 3px rgba(0,0,0,0.04)' }}>
           {[
-            { pos:'🥇', label:'Campeones',    sub:'Trofeo + indumentaria',    amount: prize.first  },
-            { pos:'🥈', label:'Finalistas',   sub:'Trofeo + voucher tienda',  amount: prize.second },
-            { pos:'🥉', label:'Semifinalistas',sub:'Medallas',                amount: prize.third  },
+            { pos:'🥇', label:'Campeones',    sub: prize.first_desc  ?? '',  amount: prize.first  },
+            { pos:'🥈', label:'Finalistas',   sub: prize.second_desc ?? '',  amount: prize.second },
+            { pos:'🥉', label:'Semifinalistas',sub: prize.third_desc  ?? '',  amount: prize.third  },
           ].filter(r => r.amount > 0).map((row, i, arr) => (
             <div key={i} style={{ display:'flex', alignItems:'center', gap:14, padding:'14px 18px', borderBottom: i < arr.length-1 ? '1px solid rgba(0,0,0,0.06)' : 'none' }}>
               <span style={{ fontSize:28 }}>{row.pos}</span>

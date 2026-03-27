@@ -117,7 +117,7 @@ export default function Admin() {
   const [cf, setCf] = useState({
     name: '', category: 'Quinta', gender: 'male',
     pairs_count: 12, pairs_per_zone: 3, courts_count: 4,
-    start_date: '', prize_first: '', prize_second: '', prize_third: '', rules: '',
+    start_date: '', prize_first: '', prize_second: '', prize_third: '', prize_first_desc: '', prize_second_desc: '', prize_third_desc: '', rules: '',
   })
   const [fb1, setFb1] = useState('')
 
@@ -133,7 +133,7 @@ export default function Admin() {
       club_id: clubs[0].id, name: cf.name, category: cf.category, gender: cf.gender,
       pairs_count: cf.pairs_count, courts_count: cf.courts_count,
       start_date: cf.start_date, status: 'upcoming',
-      prize_pool: { first: +cf.prize_first || 0, second: +cf.prize_second || 0, third: +cf.prize_third || 0 },
+      prize_pool: { first: +cf.prize_first || 0, second: +cf.prize_second || 0, third: +cf.prize_third || 0, first_desc: cf.prize_first_desc, second_desc: cf.prize_second_desc, third_desc: cf.prize_third_desc },
       rules: cf.rules || null,
     }).select().single()
 
@@ -157,7 +157,7 @@ export default function Admin() {
     name: '', category: 'Quinta', gender: 'male',
     pairs_count: 12, courts_count: 4,
     start_date: '', end_date: '',
-    prize_first: '', prize_second: '', prize_third: '', rules: '',
+    prize_first: '', prize_second: '', prize_third: '', prize_first_desc: '', prize_second_desc: '', prize_third_desc: '', rules: '',
   })
   const [fb1e, setFb1e] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -179,6 +179,9 @@ export default function Admin() {
       prize_first: prize.first ? String(prize.first) : '',
       prize_second: prize.second ? String(prize.second) : '',
       prize_third: prize.third ? String(prize.third) : '',
+      prize_first_desc: prize.first_desc ?? '',
+      prize_second_desc: prize.second_desc ?? '',
+      prize_third_desc: prize.third_desc ?? '',
       rules: (t as any).rules ?? '',
     })
     setFb1e('')
@@ -200,6 +203,9 @@ export default function Admin() {
         first: +ef.prize_first || 0,
         second: +ef.prize_second || 0,
         third: +ef.prize_third || 0,
+        first_desc: ef.prize_first_desc,
+        second_desc: ef.prize_second_desc,
+        third_desc: ef.prize_third_desc,
       },
       rules: ef.rules || null,
     }).eq('id', selectedTId)
@@ -600,15 +606,28 @@ export default function Admin() {
                   </span>
                 ))}
               </div>
-              <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="grid grid-cols-2 gap-3 mb-2">
                 <Field label="Premio 1° ($)">
-                  <input className={inp} type="number" placeholder="80000" value={cf.prize_first} onChange={e => setCf(f => ({ ...f, prize_first: e.target.value }))} />
+                  <input className={inp} type="number" placeholder="200000" value={cf.prize_first} onChange={e => setCf(f => ({ ...f, prize_first: e.target.value }))} />
                 </Field>
+                <Field label="Descripción 1° (opcional)">
+                  <input className={inp} placeholder="Trofeo + indumentaria" value={cf.prize_first_desc} onChange={e => setCf(f => ({ ...f, prize_first_desc: e.target.value }))} />
+                </Field>
+              </div>
+              <div className="grid grid-cols-2 gap-3 mb-2">
                 <Field label="Premio 2° ($)">
-                  <input className={inp} type="number" placeholder="40000" value={cf.prize_second} onChange={e => setCf(f => ({ ...f, prize_second: e.target.value }))} />
+                  <input className={inp} type="number" placeholder="120000" value={cf.prize_second} onChange={e => setCf(f => ({ ...f, prize_second: e.target.value }))} />
                 </Field>
+                <Field label="Descripción 2° (opcional)">
+                  <input className={inp} placeholder="Trofeo + voucher" value={cf.prize_second_desc} onChange={e => setCf(f => ({ ...f, prize_second_desc: e.target.value }))} />
+                </Field>
+              </div>
+              <div className="grid grid-cols-2 gap-3 mb-4">
                 <Field label="Premio 3° ($)">
-                  <input className={inp} type="number" placeholder="20000" value={cf.prize_third} onChange={e => setCf(f => ({ ...f, prize_third: e.target.value }))} />
+                  <input className={inp} type="number" placeholder="60000" value={cf.prize_third} onChange={e => setCf(f => ({ ...f, prize_third: e.target.value }))} />
+                </Field>
+                <Field label="Descripción 3° (opcional)">
+                  <input className={inp} placeholder="Medallas" value={cf.prize_third_desc} onChange={e => setCf(f => ({ ...f, prize_third_desc: e.target.value }))} />
                 </Field>
               </div>
               <Field label="Reglamento (opcional)">
@@ -668,15 +687,28 @@ export default function Admin() {
                     </Field>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-3 mb-4">
+                  <div className="grid grid-cols-2 gap-3 mb-2">
                     <Field label="Premio 1° ($)">
                       <input className={inp} type="number" value={ef.prize_first} onChange={e => setEf(f => ({ ...f, prize_first: e.target.value }))} />
                     </Field>
+                    <Field label="Descripción 1° (opcional)">
+                      <input className={inp} placeholder="Trofeo + indumentaria" value={ef.prize_first_desc} onChange={e => setEf(f => ({ ...f, prize_first_desc: e.target.value }))} />
+                    </Field>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 mb-2">
                     <Field label="Premio 2° ($)">
                       <input className={inp} type="number" value={ef.prize_second} onChange={e => setEf(f => ({ ...f, prize_second: e.target.value }))} />
                     </Field>
+                    <Field label="Descripción 2° (opcional)">
+                      <input className={inp} placeholder="Trofeo + voucher" value={ef.prize_second_desc} onChange={e => setEf(f => ({ ...f, prize_second_desc: e.target.value }))} />
+                    </Field>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 mb-4">
                     <Field label="Premio 3° ($)">
                       <input className={inp} type="number" value={ef.prize_third} onChange={e => setEf(f => ({ ...f, prize_third: e.target.value }))} />
+                    </Field>
+                    <Field label="Descripción 3° (opcional)">
+                      <input className={inp} placeholder="Medallas" value={ef.prize_third_desc} onChange={e => setEf(f => ({ ...f, prize_third_desc: e.target.value }))} />
                     </Field>
                   </div>
 
