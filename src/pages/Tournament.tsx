@@ -29,7 +29,7 @@ export default function Tournament() {
       {/* Header */}
       <div className="animate-fade-in" style={{ padding:'24px 0 20px', borderBottom:'1px solid rgba(0,0,0,0.07)', marginBottom:20 }}>
         <button
-          onClick={() => navigate('/')}
+          onClick={() => navigate('/#torneos')}
           style={{ background:'none', border:'none', color:'#aaa', fontSize:13, cursor:'pointer', marginBottom:14, padding:0, display:'flex', alignItems:'center', gap:5, fontFamily:'inherit' }}
         >
           ← Volver
