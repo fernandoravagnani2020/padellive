@@ -18,58 +18,84 @@ function AppHeader() {
   }
 
   const isAdmin = location.pathname === '/admin'
+  const isHome  = location.pathname === '/'
 
   return (
     <header style={{
-      background: '#fff',
-      borderBottom: '1px solid rgba(0,0,0,0.08)',
+      background: isHome ? 'linear-gradient(135deg, #000 0%, #1a1a1a 100%)' : '#fff',
+      borderBottom: isHome ? 'none' : '1px solid rgba(0,0,0,0.08)',
       position: 'sticky', top: 0, zIndex: 100,
     }}>
       <div style={{
-        maxWidth: 960, margin: '0 auto', padding: '0 16px',
-        height: 54, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        maxWidth: isHome ? '100%' : 960, margin: '0 auto', padding: isHome ? '16px 20px' : '0 16px',
+        height: isHome ? 'auto' : 54,
+        display: 'flex', flexDirection: isHome ? 'column' : 'row',
+        alignItems: 'center', justifyContent: isHome ? 'center' : 'space-between',
+        gap: isHome ? 10 : 0,
+        textAlign: isHome ? 'center' : 'left',
       }}>
-        {/* Logo */}
-        <a href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}>
+        {/* Logo + nombre */}
+        <a href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: isHome ? 20 : 10 }}>
           <img
             src="/logo.png"
             alt="Negro Padel"
-            style={{ width: 34, height: 34, borderRadius: 6, objectFit: 'cover', flexShrink: 0, mixBlendMode: 'multiply' as React.CSSProperties['mixBlendMode'] }}
+            style={{
+              width: isHome ? 70 : 34,
+              height: isHome ? 70 : 34,
+              objectFit: 'contain', flexShrink: 0,
+              ...(!isHome ? { borderRadius: 6, mixBlendMode: 'multiply' as React.CSSProperties['mixBlendMode'] } : {})
+            }}
           />
-          <div style={{ lineHeight: 1.15 }}>
-            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, letterSpacing: '0.05em', color: '#111' }}>
-              Negro Padel <span style={{ color: '#ccc' }}>&amp;</span> Encuentro
+          <div style={{ lineHeight: 1.2 }}>
+            <div style={{
+              fontFamily: "'Bebas Neue', sans-serif",
+              fontSize: isHome ? 'clamp(1.2em, 4vw, 1.8em)' : 17,
+              letterSpacing: isHome ? 3 : 2,
+              fontWeight: isHome ? 300 : 600,
+              color: isHome ? '#fff' : '#111',
+              textTransform: 'uppercase',
+            }}>
+              PADEL Y ENCUENTRO
             </div>
-            <div style={{ fontSize: 9, letterSpacing: '0.14em', color: '#bbb', textTransform: 'uppercase', fontWeight: 600 }}>
-              Reservas &amp; Torneos
-            </div>
+            {isHome && (
+              <div style={{ fontSize: '0.9em', opacity: 0.7, fontWeight: 300, letterSpacing: 1, color: '#fff' }}>
+                Reservá tu turno en segundos
+              </div>
+            )}
+            {!isHome && (
+              <div style={{ fontSize: 9, letterSpacing: '0.14em', color: '#bbb', textTransform: 'uppercase', fontWeight: 600 }}>
+                Reservas &amp; Torneos
+              </div>
+            )}
           </div>
         </a>
 
-        {/* Nav */}
-        <nav style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-          {user ? (
-            <>
-              <a href="/admin" style={{
+        {/* Nav — solo visible fuera de la home */}
+        {!isHome && (
+          <nav style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+            {user ? (
+              <>
+                <a href="/admin" style={{
+                  padding: '5px 12px', borderRadius: 7, fontSize: 13, fontWeight: 500,
+                  textDecoration: 'none',
+                  color: isAdmin ? '#111' : '#666',
+                  background: isAdmin ? 'rgba(0,0,0,0.07)' : 'transparent',
+                  border: '1px solid rgba(0,0,0,0.1)',
+                }}>Admin</a>
+                <button onClick={handleLogout} style={{
+                  padding: '5px 12px', borderRadius: 7, fontSize: 13, fontWeight: 500,
+                  background: 'transparent', color: '#bbb',
+                  border: '1px solid rgba(0,0,0,0.08)', cursor: 'pointer', fontFamily: 'inherit',
+                }}>Salir</button>
+              </>
+            ) : (
+              <a href="/login" style={{
                 padding: '5px 12px', borderRadius: 7, fontSize: 13, fontWeight: 500,
-                textDecoration: 'none',
-                color: isAdmin ? '#111' : '#666',
-                background: isAdmin ? 'rgba(0,0,0,0.07)' : 'transparent',
-                border: '1px solid rgba(0,0,0,0.1)',
+                textDecoration: 'none', color: '#888', border: '1px solid rgba(0,0,0,0.1)',
               }}>Admin</a>
-              <button onClick={handleLogout} style={{
-                padding: '5px 12px', borderRadius: 7, fontSize: 13, fontWeight: 500,
-                background: 'transparent', color: '#bbb',
-                border: '1px solid rgba(0,0,0,0.08)', cursor: 'pointer', fontFamily: 'inherit',
-              }}>Salir</button>
-            </>
-          ) : (
-            <a href="/login" style={{
-              padding: '5px 12px', borderRadius: 7, fontSize: 13, fontWeight: 500,
-              textDecoration: 'none', color: '#888', border: '1px solid rgba(0,0,0,0.1)',
-            }}>Admin</a>
-          )}
-        </nav>
+            )}
+          </nav>
+        )}
       </div>
     </header>
   )
@@ -106,24 +132,6 @@ function MainPage() {
 
   return (
     <>
-      {/* Header de reservas — estilo original negro */}
-      {!showTorneos && (
-        <div style={{
-          background: 'linear-gradient(135deg, #000 0%, #1a1a1a 100%)',
-          color: 'white', padding: '20px 15px', textAlign: 'center',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20, marginBottom: 10 }}>
-            <img src="/logo.png" alt="NEGRO" style={{ width: 70, height: 70, objectFit: 'contain' }} />
-            <h1 style={{ fontSize: 'clamp(1.2em, 4vw, 1.8em)', margin: 0, textTransform: 'uppercase', letterSpacing: 3, fontWeight: 300, lineHeight: 1 }}>
-              PADEL Y ENCUENTRO
-            </h1>
-          </div>
-          <p style={{ fontSize: '0.9em', opacity: 0.7, fontWeight: 300, letterSpacing: 1, margin: 0 }}>
-            Reservá tu turno en segundos
-          </p>
-        </div>
-      )}
-
       {/* Tabs */}
       <div style={{ display: 'flex', background: '#111', borderBottom: '2px solid #222' }}>
         {[
