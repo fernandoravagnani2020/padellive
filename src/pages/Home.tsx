@@ -11,7 +11,7 @@ function StatusBadge({ status }: { status: Tournament['status'] }) {
   const base: React.CSSProperties = { display:'inline-flex', alignItems:'center', gap:5, fontSize:10, fontWeight:700, letterSpacing:'0.08em', padding:'3px 9px', borderRadius:99, textTransform:'uppercase' }
   if (status === 'live')     return <span style={{ ...base, background:'rgba(22,163,74,0.1)', color:'#15803d', border:'1px solid rgba(22,163,74,0.25)' }}><PulseDot /> En vivo</span>
   if (status === 'upcoming') return <span style={{ ...base, background:'rgba(0,0,0,0.05)', color:'#888', border:'1px solid rgba(0,0,0,0.1)' }}>Próximo</span>
-  return                            <span style={{ ...base, background:'rgba(0,0,0,0.03)', color:'#bbb', border:'1px solid rgba(0,0,0,0.07)' }}>Finalizado</span>
+  return <span style={{ ...base, background:'rgba(0,0,0,0.03)', color:'#bbb', border:'1px solid rgba(0,0,0,0.07)' }}>Finalizado</span>
 }
 
 function TournamentCard({ t }: { t: Tournament }) {
@@ -29,9 +29,8 @@ function TournamentCard({ t }: { t: Tournament }) {
         position: 'relative', overflow: 'hidden',
         boxShadow: isLive ? '0 2px 16px rgba(22,163,74,0.08)' : '0 1px 4px rgba(0,0,0,0.04)',
         opacity: isDone ? 0.7 : 1,
+        transition: 'all 0.15s',
       }}
-      onMouseEnter={e => { e.currentTarget.style.borderColor = isLive ? 'rgba(22,163,74,0.6)' : 'rgba(0,0,0,0.18)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.08)' }}
-      onMouseLeave={e => { e.currentTarget.style.borderColor = isLive ? 'rgba(22,163,74,0.4)' : 'rgba(0,0,0,0.08)'; e.currentTarget.style.boxShadow = isLive ? '0 2px 16px rgba(22,163,74,0.08)' : '0 1px 4px rgba(0,0,0,0.04)' }}
     >
       {isLive && <div style={{ position:'absolute', top:0, left:0, right:0, height:2, background:'#16a34a' }} />}
 
@@ -42,7 +41,7 @@ function TournamentCard({ t }: { t: Tournament }) {
         </span>
       </div>
 
-      <div style={{ fontFamily:"'Bebas Neue', sans-serif", fontSize:28, letterSpacing:'0.02em', lineHeight:1, color:'#111', marginBottom:4 }}>
+      <div style={{ fontFamily:"'Bebas Neue', sans-serif", fontSize:26, letterSpacing:'0.02em', lineHeight:1, color:'#111', marginBottom:4 }}>
         {t.name}
       </div>
       <div style={{ fontSize:12, color:'#aaa', marginBottom:16 }}>
@@ -66,8 +65,8 @@ function TournamentCard({ t }: { t: Tournament }) {
         display:'inline-flex', alignItems:'center', gap:6,
         background: isLive ? '#16a34a' : 'rgba(0,0,0,0.05)',
         color: isLive ? '#fff' : '#555',
-        fontFamily:"'Bebas Neue', sans-serif", fontSize:15, letterSpacing:'0.05em',
-        padding:'8px 16px', borderRadius:8,
+        fontFamily:"'Bebas Neue', sans-serif", fontSize:14, letterSpacing:'0.05em',
+        padding:'7px 16px', borderRadius:8,
         border: isLive ? 'none' : '1px solid rgba(0,0,0,0.1)',
       }}>
         {isLive ? 'Ver en vivo →' : isDone ? 'Ver resultados →' : 'Ver torneo →'}
@@ -106,9 +105,9 @@ export default function Home() {
   function Section({ label, items }: { label: string; items: Tournament[] }) {
     if (!items.length) return null
     return (
-      <div style={{ marginBottom:36 }}>
+      <div style={{ marginBottom:32 }}>
         <div style={{ fontSize:10, fontWeight:700, letterSpacing:'0.12em', color:'#bbb', textTransform:'uppercase', marginBottom:12 }}>{label}</div>
-        <div className="stagger" style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))', gap:10 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))', gap:10 }}>
           {items.map(t => <TournamentCard key={t.id} t={t} />)}
         </div>
       </div>
@@ -116,28 +115,8 @@ export default function Home() {
   }
 
   return (
-    <div style={{ paddingTop:28 }}>
-      {/* Hero */}
-      <div className="animate-fade-in" style={{ marginBottom:36 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:14 }}>
-          <img src="/logo.png" alt="Negro Padel" style={{ width:56, height:56, borderRadius:10, objectFit:'cover', border:'1px solid rgba(0,0,0,0.08)', flexShrink:0 }} />
-          <div>
-            <div style={{ fontFamily:"'Bebas Neue', sans-serif", fontSize:'clamp(28px, 6vw, 44px)', letterSpacing:'0.03em', lineHeight:1, color:'#111' }}>
-              Negro Padel <span style={{ color:'#ccc' }}>&amp;</span> Encuentro
-            </div>
-            <div style={{ fontSize:10, letterSpacing:'0.16em', color:'#bbb', textTransform:'uppercase', fontWeight:600, marginTop:2 }}>
-              Torneos
-            </div>
-          </div>
-        </div>
-        {live.length > 0 && (
-          <span style={{ display:'inline-flex', alignItems:'center', gap:6, fontSize:10, fontWeight:700, letterSpacing:'0.1em', padding:'4px 10px', borderRadius:99, background:'rgba(22,163,74,0.08)', border:'1px solid rgba(22,163,74,0.2)', color:'#15803d', textTransform:'uppercase' }}>
-            <PulseDot />{live.length} torneo{live.length > 1 ? 's' : ''} en curso
-          </span>
-        )}
-      </div>
-
-      <Section label="🟢 En vivo ahora" items={live} />
+    <div style={{ paddingTop: 24 }}>
+      <Section label="🟢 En vivo" items={live} />
       <Section label="Próximos" items={upcoming} />
       <Section label="Historial" items={finished} />
 
@@ -145,7 +124,6 @@ export default function Home() {
         <div style={{ textAlign:'center', padding:'60px 0', color:'#ccc' }}>
           <div style={{ fontSize:40, marginBottom:12 }}>🎾</div>
           <p style={{ fontSize:14, color:'#aaa' }}>Sin torneos cargados.</p>
-          <p style={{ fontSize:12, color:'#bbb', marginTop:4 }}>Creá el primero desde el panel Admin.</p>
         </div>
       )}
     </div>

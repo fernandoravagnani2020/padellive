@@ -25,9 +25,12 @@ function AppHeader() {
       background: '#0a0a0a',
       borderBottom: '1px solid rgba(255,255,255,0.07)',
       position: 'sticky', top: 0, zIndex: 100,
+      paddingLeft: 'env(safe-area-inset-left)',
+      paddingRight: 'env(safe-area-inset-right)',
     }}>
       <div style={{
-        maxWidth: 960, margin: '0 auto', padding: '0 20px',
+        maxWidth: 960, margin: '0 auto',
+        padding: '0 20px',
         height: 52,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
       }}>
@@ -147,8 +150,8 @@ function MainPage() {
         </div>
       ) : (
         /* ── Torneos: estética blanca del proyecto ── */
-        <div style={{ background: '#f8f8f8', minHeight: 'calc(100vh - 52px)' }}>
-          <div style={{ maxWidth: 960, margin: '0 auto', padding: '0 16px 80px' }}>
+        <div style={{ background: '#f8f8f8', minHeight: 'calc(100dvh - 52px)' }}>
+          <div style={{ maxWidth: 960, margin: '0 auto', padding: '0 16px calc(80px + env(safe-area-inset-bottom))' }}>
             <Home />
           </div>
         </div>

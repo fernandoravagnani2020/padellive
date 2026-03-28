@@ -4,14 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 
-    <!-- Favicon pestaña Chrome -->
+    <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/icon-192.png" />
-    <link rel="icon" type="image/png" sizes="16x16" href="/icon-192.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
 
     <!-- PWA -->
     <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#000000" />
+    <meta name="theme-color" content="#0a0a0a" />
 
     <!-- iOS PWA -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -19,10 +18,31 @@
     <meta name="apple-mobile-web-app-title" content="Negro Padel" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
-    <!-- SEO -->
-    <meta name="description" content="Seguí los torneos de Negro Padel y Encuentro en tiempo real." />
+    <meta name="description" content="Reservas y torneos de Negro Padel y Encuentro." />
 
-    <title>Negro Padel · Torneos</title>
+    <title>Negro Padel · Reservas &amp; Torneos</title>
+
+    <style>
+      /* Zona segura notch iOS */
+      :root {
+        --sat: env(safe-area-inset-top);
+        --sar: env(safe-area-inset-right);
+        --sab: env(safe-area-inset-bottom);
+        --sal: env(safe-area-inset-left);
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      html, body { height: 100%; }
+      body {
+        font-family: 'Inter', system-ui, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        background: #0a0a0a;
+        /* Padding para zona segura en iOS standalone */
+        padding-top: var(--sat);
+        padding-left: var(--sal);
+        padding-right: var(--sar);
+      }
+      #root { min-height: 100dvh; }
+    </style>
   </head>
   <body>
     <div id="root"></div>
