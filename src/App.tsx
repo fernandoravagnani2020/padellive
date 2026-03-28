@@ -76,12 +76,18 @@ function AppHeader() {
             <>
               <a href="/admin" style={{
                 padding:'5px 10px', borderRadius:6, fontSize:12, fontWeight:500,
-                textDecoration:'none',
-                color: isAdmin ? '#fff' : 'rgba(255,255,255,0.45)',
-                background: isAdmin ? 'rgba(255,255,255,0.1)' : 'transparent',
+                textDecoration:'none', whiteSpace:'nowrap',
+                color: location.pathname==='/admin' ? '#fff' : 'rgba(255,255,255,0.45)',
+                background: location.pathname==='/admin' ? 'rgba(255,255,255,0.1)' : 'transparent',
                 border:'1px solid rgba(255,255,255,0.1)',
-                whiteSpace:'nowrap',
-              }}>Admin</a>
+              }}>Torneos</a>
+              <a href="/admin/liga" style={{
+                padding:'5px 10px', borderRadius:6, fontSize:12, fontWeight:500,
+                textDecoration:'none', whiteSpace:'nowrap',
+                color: location.pathname==='/admin/liga' ? '#fff' : 'rgba(255,255,255,0.45)',
+                background: location.pathname==='/admin/liga' ? 'rgba(255,255,255,0.1)' : 'transparent',
+                border:'1px solid rgba(255,255,255,0.1)',
+              }}>Liga</a>
               <button onClick={handleLogout} style={{
                 padding:'5px 10px', borderRadius:6, fontSize:12,
                 background:'transparent', color:'rgba(255,255,255,0.25)',
