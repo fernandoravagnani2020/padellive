@@ -279,8 +279,8 @@ function slotStyle(type: SlotType): React.CSSProperties {
   }
 }
 
-const slotContent: React.CSSProperties = { padding:15, display:'flex', justifyContent:'space-between', alignItems:'center' }
-const slotTime:    React.CSSProperties = { fontWeight:'bold', fontSize:'1.3em', marginBottom:4 }
+const slotContent: React.CSSProperties = { padding:'15px', display:'flex', justifyContent:'space-between', alignItems:'center', minHeight: 70 }
+const slotTime:    React.CSSProperties = { fontWeight:'bold', fontSize:'1.3em', marginBottom:4, color:'inherit' }
 const slotStatus:  React.CSSProperties = { fontSize:'0.75em', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.5px' }
 const promoStyle:  React.CSSProperties = { background:'#1976d2', color:'#fff', padding:'3px 8px', borderRadius:5, fontSize:'0.7em', fontWeight:'bold', display:'inline-block', marginTop:3 }
 const discountBadge: React.CSSProperties = { background:'#00c853', color:'#fff', padding:'3px 8px', borderRadius:5, fontSize:'0.7em', fontWeight:'bold', display:'inline-block', animation:'pulse 2s infinite' }
