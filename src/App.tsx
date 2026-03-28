@@ -5,6 +5,8 @@ import Login from './pages/Login'
 import Reservas from './pages/Reservas'
 import Tournament from './pages/Tournament'
 import Home from './pages/Home'
+import LeaguePublic from './pages/LeaguePublic'
+import LeagueAdmin from './pages/LeagueAdmin'
 
 // ── Header unificado ─────────────────────────────────────
 function AppHeader() {
@@ -14,6 +16,7 @@ function AppHeader() {
   const isHome   = location.pathname === '/'
   const isAdmin  = location.pathname === '/admin'
   const showTorneos = isHome && location.hash === '#torneos'
+  const showLiga     = isHome && location.hash === '#liga'
 
   async function handleLogout() {
     await logout()
@@ -49,22 +52,21 @@ function AppHeader() {
         {/* Centro: tabs solo en home */}
         {isHome && (
           <nav style={{ display:'flex', gap:2, flexShrink:0 }}>
-            <a href="#reservas" style={{
-              padding:'5px 12px', borderRadius:6, fontSize:12, fontWeight: showTorneos ? 400 : 600,
-              textDecoration:'none', whiteSpace:'nowrap',
-              color: showTorneos ? 'rgba(255,255,255,0.4)' : '#fff',
-              background: showTorneos ? 'transparent' : 'rgba(255,255,255,0.1)',
-              border: '1px solid ' + (showTorneos ? 'transparent' : 'rgba(255,255,255,0.15)'),
-              transition:'all 0.15s',
-            }}>Reservas</a>
-            <a href="#torneos" style={{
-              padding:'5px 12px', borderRadius:6, fontSize:12, fontWeight: showTorneos ? 600 : 400,
-              textDecoration:'none', whiteSpace:'nowrap',
-              color: showTorneos ? '#fff' : 'rgba(255,255,255,0.4)',
-              background: showTorneos ? 'rgba(255,255,255,0.1)' : 'transparent',
-              border: '1px solid ' + (showTorneos ? 'rgba(255,255,255,0.15)' : 'transparent'),
-              transition:'all 0.15s',
-            }}>Torneos</a>
+            {[
+              { hash:'#reservas', label:'Reservas', active: !showTorneos && !showLiga },
+              { hash:'#torneos',  label:'Torneos',  active: showTorneos },
+              { hash:'#liga',     label:'Liga',     active: showLiga },
+            ].map(tab => (
+              <a key={tab.hash} href={tab.hash} style={{
+                padding:'5px 10px', borderRadius:6, fontSize:12,
+                fontWeight: tab.active ? 600 : 400,
+                textDecoration:'none', whiteSpace:'nowrap',
+                color: tab.active ? '#fff' : 'rgba(255,255,255,0.4)',
+                background: tab.active ? 'rgba(255,255,255,0.1)' : 'transparent',
+                border: '1px solid ' + (tab.active ? 'rgba(255,255,255,0.15)' : 'transparent'),
+                transition:'all 0.15s',
+              }}>{tab.label}</a>
+            ))}
           </nav>
         )}
 
@@ -126,10 +128,22 @@ function ProtectedAdmin() {
   return <Admin />
 }
 
+function ProtectedAdminLiga() {
+  const { user, loading } = useAuth()
+  if (loading) return (
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 200 }}>
+      <div style={{ width: 22, height: 22, border: '2px solid #16a34a', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+    </div>
+  )
+  if (!user) return <Navigate to="/login" replace />
+  return <LeagueAdmin />
+}
+
 // ── Página principal: Reservas + Torneos ─────────────────
 function MainPage() {
   const location = useLocation()
   const showTorneos = location.hash === '#torneos'
+  const showLiga     = location.hash === '#liga'
 
   return (
     <>
@@ -150,12 +164,21 @@ function MainPage() {
           </div>
         </div>
       ) : (
-        /* ── Torneos: estética blanca del proyecto ── */
+        showTorneos ? (
+        /* ── Torneos ── */
         <div style={{ background: '#f8f8f8', minHeight: 'calc(100dvh - 52px)' }}>
           <div style={{ maxWidth: 960, margin: '0 auto', padding: '0 16px calc(80px + env(safe-area-inset-bottom))' }}>
             <Home />
           </div>
         </div>
+        ) : (
+        /* ── Liga ── */
+        <div style={{ background: '#f8f8f8', minHeight: 'calc(100dvh - 52px)' }}>
+          <div style={{ maxWidth: 960, margin: '0 auto', padding: '0 16px calc(80px + env(safe-area-inset-bottom))' }}>
+            <LeaguePublic />
+          </div>
+        </div>
+        )
       )}
     </>
   )
@@ -172,6 +195,7 @@ export default function App() {
           <Route element={<Layout />}>
             <Route path="/torneo/:id" element={<Tournament />} />
             <Route path="/admin"      element={<ProtectedAdmin />} />
+          <Route path="/admin/liga"  element={<ProtectedAdminLiga />} />
           </Route>
         </Routes>
       </div>
