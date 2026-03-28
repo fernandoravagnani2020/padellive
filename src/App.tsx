@@ -42,9 +42,12 @@ function AppHeader() {
         {/* Logo + nombre */}
         <a href="/" style={{ textDecoration:'none', display:'flex', alignItems:'center', gap:8, flexShrink:0, minWidth:0 }}>
           <img src="/logo.png" alt="Negro Padel" style={{ width:28, height:28, objectFit:'contain', flexShrink:0 }} />
-          <div style={{ lineHeight:1.15, minWidth:0 }}>
-            <div style={{ fontFamily:"'Bebas Neue', sans-serif", fontSize:15, letterSpacing:'0.05em', color:'#fff', whiteSpace:'nowrap' }}>
-              Negro Padel <span style={{ color:'rgba(255,255,255,0.25)' }}>&amp;</span> Encuentro
+          <div style={{ lineHeight:1.1 }}>
+            <div style={{ fontFamily:"'Bebas Neue', sans-serif", fontSize:16, letterSpacing:'0.06em', color:'#fff', whiteSpace:'nowrap' }}>
+              Negro
+            </div>
+            <div style={{ fontSize:9, letterSpacing:'0.08em', color:'rgba(255,255,255,0.4)', whiteSpace:'nowrap', fontWeight:500 }}>
+              Padel &amp; Encuentro
             </div>
           </div>
         </a>
