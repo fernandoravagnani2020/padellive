@@ -7,9 +7,12 @@ import Tournament from './pages/Tournament'
 import Home from './pages/Home'
 
 function Layout() {
+  const location = useLocation()
+  // En la página principal (/) el header lo maneja MainPage con el estilo original
+  const showHeader = location.pathname !== '/'
   return (
     <>
-      <AppHeader />
+      {showHeader && <AppHeader />}
       <Outlet />
     </>
   )
@@ -29,7 +32,7 @@ function ProtectedAdmin() {
 export default function App() {
   return (
     <BrowserRouter>
-      <div style={{ minHeight:'100vh', background:'#000' }}>
+      <div style={{ minHeight:'100vh' }}>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route element={<Layout />}>
@@ -52,33 +55,66 @@ function MainPage() {
   const showTorneos = hash === '#torneos'
 
   return (
-    <div>
-      {/* Tabs */}
-      <div style={{ display:'flex', background:'#111', borderBottom:'2px solid #222' }}>
-        {[
-          { hash:'#reservas', icon:'🎾', label:'RESERVAS', active: !showTorneos },
-          { hash:'#torneos',  icon:'🏆', label:'TORNEOS',  active: showTorneos  },
-        ].map(tab => (
-          <a key={tab.hash} href={tab.hash} style={{
-            flex:1, padding:'14px 10px', textAlign:'center' as const,
-            color: tab.active ? '#fff' : 'rgba(255,255,255,0.45)',
-            fontWeight:700, letterSpacing:2, fontSize:'0.85em', textTransform:'uppercase' as const,
-            textDecoration:'none', borderBottom: tab.active ? '3px solid #fff' : '3px solid transparent',
-            background: tab.active ? 'rgba(255,255,255,0.06)' : 'transparent',
-            transition:'all 0.2s',
+    <div style={{ 
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
+      padding: showTorneos ? 0 : 10,
+    }}>
+      {/* Container con el estilo original de reservas */}
+      <div style={{
+        maxWidth: 1200,
+        margin: '0 auto',
+        background: 'white',
+        borderRadius: showTorneos ? 0 : 15,
+        boxShadow: showTorneos ? 'none' : '0 10px 40px rgba(0,0,0,0.3)',
+        overflow: 'hidden',
+        minHeight: showTorneos ? 'calc(100vh - 54px)' : 'auto',
+      }}>
+        {/* Header negro original de reservas */}
+        {!showTorneos && (
+          <div style={{
+            background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)',
+            color: 'white', padding: '20px 15px', textAlign: 'center',
           }}>
-            <span style={{ display:'block', fontSize:'1.3em', marginBottom:3 }}>{tab.icon}</span>
-            {tab.label}
-          </a>
-        ))}
-      </div>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:20, marginBottom:10 }}>
+              <img src="/logo.png" alt="NEGRO" style={{ maxWidth:80, height:'auto', display:'block' }} />
+              <h1 style={{ fontSize:'1.8em', margin:0, textTransform:'uppercase', letterSpacing:3, fontWeight:300, lineHeight:1 }}>
+                PADEL Y ENCUENTRO
+              </h1>
+            </div>
+            <p style={{ fontSize:'0.9em', opacity:0.7, fontWeight:300, letterSpacing:1, margin:0 }}>
+              Reservá tu turno en segundos
+            </p>
+          </div>
+        )}
 
-      {/* Contenido */}
-      {!showTorneos ? (
-        <Reservas />
-      ) : (
-        <TorneosPage />
-      )}
+        {/* Tabs */}
+        <div style={{ display:'flex', background:'#111', borderBottom:'2px solid #222' }}>
+          {[
+            { hash:'#reservas', icon:'🎾', label:'RESERVAS', active: !showTorneos },
+            { hash:'#torneos',  icon:'🏆', label:'TORNEOS',  active: showTorneos  },
+          ].map(tab => (
+            <a key={tab.hash} href={tab.hash} style={{
+              flex:1, padding:'14px 10px', textAlign:'center' as const,
+              color: tab.active ? '#fff' : 'rgba(255,255,255,0.45)',
+              fontWeight:700, letterSpacing:2, fontSize:'0.85em', textTransform:'uppercase' as const,
+              textDecoration:'none', borderBottom: tab.active ? '3px solid #fff' : '3px solid transparent',
+              background: tab.active ? 'rgba(255,255,255,0.06)' : 'transparent',
+              transition:'all 0.2s',
+            }}>
+              <span style={{ display:'block', fontSize:'1.3em', marginBottom:3 }}>{tab.icon}</span>
+              {tab.label}
+            </a>
+          ))}
+        </div>
+
+        {/* Contenido */}
+        {!showTorneos ? (
+          <Reservas />
+        ) : (
+          <TorneosPage />
+        )}
+      </div>
     </div>
   )
 }
@@ -87,8 +123,11 @@ function MainPage() {
 
 function TorneosPage() {
   return (
-    <div style={{ maxWidth:960, margin:'0 auto', padding:'0 16px 80px' }}>
-      <Home />
+    <div style={{ background:'#f8f8f8', minHeight:'100vh' }}>
+      <AppHeader />
+      <div style={{ maxWidth:960, margin:'0 auto', padding:'0 16px 80px' }}>
+        <Home />
+      </div>
     </div>
   )
 }
