@@ -1,3 +1,4 @@
+import React from 'react'
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth'
 import Admin from './pages/Admin'
@@ -8,15 +9,27 @@ import Home from './pages/Home'
 import LeaguePublic from './pages/LeaguePublic'
 import LeagueAdmin from './pages/LeagueAdmin'
 
+// ── Hook responsive ───────────────────────────────────────
+function useIsMobile() {
+  const [isMobile, setIsMobile] = React.useState(window.innerWidth <= 520)
+  React.useEffect(() => {
+    const fn = () => setIsMobile(window.innerWidth <= 520)
+    window.addEventListener('resize', fn)
+    return () => window.removeEventListener('resize', fn)
+  }, [])
+  return isMobile
+}
+
 // ── Header unificado ─────────────────────────────────────
 function AppHeader() {
   const { user, logout } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
   const isHome   = location.pathname === '/'
   const isAdmin  = location.pathname === '/admin'
   const showTorneos = isHome && location.hash === '#torneos'
-  const showLiga     = isHome && location.hash === '#liga'
+  const showLiga    = isHome && location.hash === '#liga'
 
   async function handleLogout() {
     await logout()
@@ -39,20 +52,25 @@ function AppHeader() {
         justifyContent: 'space-between',
         gap: 8,
       }}>
-        {/* Logo + nombre */}
+        {/* Logo + nombre — responsive */}
         <a href="/" style={{ textDecoration:'none', display:'flex', alignItems:'center', gap:8, flexShrink:0, minWidth:0 }}>
           <img src="/logo.png" alt="Negro Padel" style={{ width:28, height:28, objectFit:'contain', flexShrink:0 }} />
           <div style={{ lineHeight:1.15 }}>
-            {/* Una sola versión con CSS responsivo via style tag */}
-            <div style={{ fontFamily:"'Bebas Neue', sans-serif", letterSpacing:'0.05em', color:'#fff', whiteSpace:'nowrap' }}
-              className="header-name">
-              <span className="header-full">Negro Padel <span style={{ color:'rgba(255,255,255,0.25)' }}>&amp;</span> Encuentro</span>
-              <span className="header-short">Negro</span>
-            </div>
-            <div style={{ fontSize:8, letterSpacing:'0.12em', color:'rgba(255,255,255,0.25)', textTransform:'uppercase', fontWeight:600, whiteSpace:'nowrap' }}>
-              <span className="header-full">Reservas &amp; Torneos</span>
-              <span className="header-short">Padel &amp; Encuentro</span>
-            </div>
+            {isMobile ? (
+              <>
+                <div style={{ fontFamily:"'Bebas Neue', sans-serif", fontSize:16, letterSpacing:'0.06em', color:'#fff' }}>Negro</div>
+                <div style={{ fontSize:9, letterSpacing:'0.08em', color:'rgba(255,255,255,0.4)', fontWeight:500 }}>Padel &amp; Encuentro</div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontFamily:"'Bebas Neue', sans-serif", fontSize:15, letterSpacing:'0.05em', color:'#fff', whiteSpace:'nowrap' }}>
+                  Negro Padel <span style={{ color:'rgba(255,255,255,0.25)' }}>&amp;</span> Encuentro
+                </div>
+                <div style={{ fontSize:8, letterSpacing:'0.14em', color:'rgba(255,255,255,0.25)', textTransform:'uppercase', fontWeight:600 }}>
+                  Reservas &amp; Torneos
+                </div>
+              </>
+            )}
           </div>
         </a>
 
