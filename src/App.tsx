@@ -80,7 +80,9 @@ function Layout() {
   return (
     <>
       <AppHeader />
-      <Outlet />
+      <div style={{ maxWidth: 960, margin: '0 auto', padding: '0 16px 80px' }}>
+        <Outlet />
+      </div>
     </>
   )
 }
@@ -161,6 +163,7 @@ function MainPage() {
       ) : (
         /* ── Torneos: estética blanca del proyecto ── */
         <div style={{ background: '#f8f8f8', minHeight: 'calc(100vh - 120px)' }}>
+          <AppHeader />
           <div style={{ maxWidth: 960, margin: '0 auto', padding: '0 16px 80px' }}>
             <Home />
           </div>
