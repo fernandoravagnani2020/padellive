@@ -92,14 +92,20 @@ export default function Reservas() {
     if (enCurso) return (
       <div key={time} style={SS('in-progress')}>
         <div style={SC}>
-          <div><div style={ST}>{time}</div><div style={SSt}>🏃 EN CURSO</div></div>
+          <div>
+            <div style={{ ...ST, color:'#fff' }}>{time}</div>
+            <div style={{ ...SSt, color:'rgba(255,255,255,0.9)' }}>🏃 EN CURSO</div>
+          </div>
         </div>
       </div>
     )
     if (fin) return (
       <div key={time} style={SS('finished')}>
         <div style={SC}>
-          <div><div style={ST}>{time}</div><div style={SSt}>⏱️ FINALIZADO</div></div>
+          <div>
+            <div style={{ ...ST, color:'rgba(255,255,255,0.7)' }}>{time}</div>
+            <div style={{ ...SSt, color:'rgba(255,255,255,0.5)' }}>⏱️ FINALIZADO</div>
+          </div>
         </div>
       </div>
     )
@@ -107,12 +113,10 @@ export default function Reservas() {
       <div key={time} style={SS('occupied')}>
         <div style={SC}>
           <div style={{ flex:1 }}>
-            <div style={ST}>{time}</div>
-            <div style={SSt}>✕ RESERVADO</div>
+            <div style={{ ...ST, color:'#fff' }}>{time}</div>
+            <div style={{ ...SSt, color:'rgba(255,255,255,0.8)' }}>✕ RESERVADO</div>
           </div>
-          <div style={{ textAlign:'right', color:'rgba(255,255,255,0.7)', fontSize:'1.1em', fontWeight:'bold', textTransform:'uppercase' }}>
-            {typeof day.slots[time] === 'string' ? day.slots[time] : ''}
-          </div>
+          {/* No mostramos el nombre — solo el estado */}
         </div>
       </div>
     )
