@@ -139,46 +139,42 @@ function ProtectedAdminLiga() {
   return <LeagueAdmin />
 }
 
-// ── Página principal: Reservas + Torneos ─────────────────
+// ── Página principal: Reservas + Torneos + Liga ──────────
 function MainPage() {
   const location = useLocation()
   const showTorneos = location.hash === '#torneos'
-  const showLiga     = location.hash === '#liga'
+  const showLiga    = location.hash === '#liga'
 
   return (
     <>
       <AppHeader />
-      {/* Contenido */}
-      {!showTorneos ? (
-        /* ── Reservas: container blanco redondeado original ── */
+      {/* Reservas */}
+      {!showTorneos && !showLiga && (
         <div style={{
           background: 'linear-gradient(135deg, #000 0%, #1a1a1a 100%)',
-          padding: 10, minHeight: 'calc(100vh - 180px)',
+          padding: '10px 10px calc(10px + env(safe-area-inset-bottom))',
+          minHeight: 'calc(100dvh - 52px)',
         }}>
-          <div style={{
-            maxWidth: 1200, margin: '0 auto',
-            background: 'white', borderRadius: 15,
-            boxShadow: '0 10px 40px rgba(0,0,0,0.3)', overflow: 'hidden',
-          }}>
+          <div style={{ maxWidth:1200, margin:'0 auto', background:'white', borderRadius:15, boxShadow:'0 10px 40px rgba(0,0,0,0.3)', overflow:'hidden' }}>
             <Reservas />
           </div>
         </div>
-      ) : (
-        showTorneos ? (
-        /* ── Torneos ── */
-        <div style={{ background: '#f8f8f8', minHeight: 'calc(100dvh - 52px)' }}>
-          <div style={{ maxWidth: 960, margin: '0 auto', padding: '0 16px calc(80px + env(safe-area-inset-bottom))' }}>
+      )}
+      {/* Torneos */}
+      {showTorneos && (
+        <div style={{ background:'#f8f8f8', minHeight:'calc(100dvh - 52px)' }}>
+          <div style={{ maxWidth:960, margin:'0 auto', padding:'0 16px calc(80px + env(safe-area-inset-bottom))' }}>
             <Home />
           </div>
         </div>
-        ) : (
-        /* ── Liga ── */
-        <div style={{ background: '#f8f8f8', minHeight: 'calc(100dvh - 52px)' }}>
-          <div style={{ maxWidth: 960, margin: '0 auto', padding: '0 16px calc(80px + env(safe-area-inset-bottom))' }}>
+      )}
+      {/* Liga */}
+      {showLiga && (
+        <div style={{ background:'#f8f8f8', minHeight:'calc(100dvh - 52px)' }}>
+          <div style={{ maxWidth:960, margin:'0 auto', padding:'0 16px calc(80px + env(safe-area-inset-bottom))' }}>
             <LeaguePublic />
           </div>
         </div>
-        )
       )}
     </>
   )
@@ -188,14 +184,14 @@ function MainPage() {
 export default function App() {
   return (
     <BrowserRouter>
-      <div style={{ minHeight: '100vh' }}>
+      <div style={{ minHeight:'100vh' }}>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/" element={<MainPage />} />
           <Route element={<Layout />}>
-            <Route path="/torneo/:id" element={<Tournament />} />
-            <Route path="/admin"      element={<ProtectedAdmin />} />
-          <Route path="/admin/liga"  element={<ProtectedAdminLiga />} />
+            <Route path="/torneo/:id"  element={<Tournament />} />
+            <Route path="/admin"       element={<ProtectedAdmin />} />
+            <Route path="/admin/liga"  element={<ProtectedAdminLiga />} />
           </Route>
         </Routes>
       </div>
