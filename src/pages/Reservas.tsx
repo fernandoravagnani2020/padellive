@@ -209,10 +209,9 @@ export default function Reservas() {
                     </div>
                   )
                   if (ocupado) return (
-                    <div key={time} style={{ ...base, background:'linear-gradient(135deg,#1a1a1a,#000)', border:'2px solid #d32f2f', opacity:0.85, color:'white' }}>
+                    <div key={time} style={{ ...base, background:'linear-gradient(135deg,#1a1a1a,#000)', border:'2px solid #d32f2f', opacity:0.85, color:'white', cursor:'not-allowed' }}>
                       <div style={{ fontWeight:'bold' }}>{time}</div>
                       <div style={{ fontSize:'0.7em', fontWeight:600, textTransform:'uppercase' }}>✕ RESERVADO</div>
-                      {typeof day.slots[time]==='string' && <div style={{ fontSize:'0.8em', opacity:0.7, textTransform:'uppercase' }}>{day.slots[time]}</div>}
                     </div>
                   )
                   return (
