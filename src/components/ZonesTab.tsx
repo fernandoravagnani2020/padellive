@@ -89,17 +89,21 @@ export default function ZonesTab() {
                   {matches.map(m => {
                     const isLive = m.status === 'live'
                     const isDone = m.status === 'done'
+                    const dateStr = m.day ? new Date(m.day + 'T00:00:00').toLocaleDateString('es-AR', { weekday:'short', day:'numeric', month:'short' }) : null
                     return (
                       <div key={m.id} style={{
-                        display:'grid', gridTemplateColumns:'44px 58px 1fr auto auto',
+                        display:'grid', gridTemplateColumns:'72px 58px 1fr auto auto',
                         alignItems:'center', gap:8,
                         background: isLive ? 'rgba(22,163,74,0.05)' : 'rgba(0,0,0,0.02)',
                         border: isLive ? '1px solid rgba(22,163,74,0.2)' : '1px solid rgba(0,0,0,0.06)',
                         borderRadius:8, padding:'8px 11px',
                       }}>
-                        <span style={{ fontFamily:"'Bebas Neue', sans-serif", fontSize:15, color:'#999', letterSpacing:'0.03em' }}>
-                          {m.scheduled_time?.slice(0,5) ?? '--:--'}
-                        </span>
+                        <div style={{ display:'flex', flexDirection:'column', gap:1 }}>
+                          {dateStr && <span style={{ fontSize:9, color:'#bbb', fontWeight:600, letterSpacing:'0.04em', textTransform:'uppercase', lineHeight:1 }}>{dateStr}</span>}
+                          <span style={{ fontFamily:"'Bebas Neue', sans-serif", fontSize:15, color:'#999', letterSpacing:'0.03em', lineHeight:1 }}>
+                            {m.scheduled_time?.slice(0,5) ?? '--:--'}
+                          </span>
+                        </div>
                         <span style={{ fontSize:11, color:'#bbb' }}>{m.court ?? ''}</span>
                         <span style={{ fontSize:13, fontWeight:500, color:'#111' }}>
                           {getPairName(m.pair1_id)} <span style={{ color:'#ccc', fontSize:11 }}>vs</span> {getPairName(m.pair2_id)}
