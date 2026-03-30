@@ -182,11 +182,11 @@ function MainPage() {
       {/* Reservas */}
       {!showTorneos && !showLiga && (
         <div style={{
-          background: 'linear-gradient(135deg, #000 0%, #1a1a1a 100%)',
-          padding: '10px 10px calc(10px + env(safe-area-inset-bottom))',
+          background: '#0a0a0a',
+          padding: '0 0 calc(env(safe-area-inset-bottom))',
           minHeight: 'calc(100dvh - 52px)',
         }}>
-          <div style={{ maxWidth:1200, margin:'0 auto', background:'white', borderRadius:15, boxShadow:'0 10px 40px rgba(0,0,0,0.3)', overflow:'hidden' }}>
+          <div style={{ maxWidth:1200, margin:'0 auto', background:'white', borderRadius:0, overflow:'hidden' }}>
             <Reservas />
           </div>
         </div>
