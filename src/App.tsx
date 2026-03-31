@@ -41,6 +41,7 @@ function AppHeader() {
       background: '#0a0a0a',
       borderBottom: '1px solid rgba(255,255,255,0.07)',
       position: 'sticky', top: 0, zIndex: 100,
+      paddingTop: 'env(safe-area-inset-top)',
       paddingLeft: 'env(safe-area-inset-left)',
       paddingRight: 'env(safe-area-inset-right)',
     }}>
@@ -183,12 +184,10 @@ function MainPage() {
       {!showTorneos && !showLiga && (
         <div style={{
           background: '#0a0a0a',
-          padding: '0 0 calc(env(safe-area-inset-bottom))',
           minHeight: 'calc(100dvh - 52px)',
+          paddingBottom: 'env(safe-area-inset-bottom)',
         }}>
-          <div style={{ maxWidth:1200, margin:'0 auto', background:'white', borderRadius:0, overflow:'hidden' }}>
-            <Reservas />
-          </div>
+          <Reservas />
         </div>
       )}
       {/* Torneos */}
