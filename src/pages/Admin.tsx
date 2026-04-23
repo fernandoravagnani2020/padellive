@@ -512,18 +512,42 @@ export default function Admin() {
       </div>
 
       {/* Stepper */}
-      <div className="flex gap-1.5 overflow-x-auto pb-1 mb-6">
-        {STEPS.map(s => (
-          <button key={s.id} onClick={() => setStep(s.id)}
-            className={`whitespace-nowrap px-3 py-2 rounded-lg text-sm font-semibold transition-all ${
-              step === s.id ? 'bg-green-600 text-white' : 'bg-gray-50 border border-gray-100 text-gray-400 hover:text-gray-900'
-            }`}>
-            {s.label}
-          </button>
-        ))}
+      <div className="flex items-start overflow-x-auto pb-2 mb-6">
+        {STEPS.map((s, idx) => {
+          const currentIdx = STEPS.findIndex(x => x.id === step)
+          const isActive   = step === s.id
+          const isCompleted = idx < currentIdx
+          const label = s.label.replace(/^\d+\.\s*/, '')
+          return (
+            <>
+              <button
+                key={s.id}
+                onClick={() => setStep(s.id)}
+                className="flex flex-col items-center gap-1.5 flex-shrink-0 px-1"
+                style={{ minWidth: 54, background: 'none', border: 'none', cursor: 'pointer' }}
+              >
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold transition-all ${
+                  isActive
+                    ? 'bg-green-600 text-white'
+                    : isCompleted
+                      ? 'bg-green-600/10 text-green-700 border border-green-600/30'
+                      : 'bg-gray-100 text-gray-400 border border-gray-200'
+                }`}>
+                  {isCompleted ? '✓' : idx + 1}
+                </div>
+                <span className={`text-[9px] font-bold tracking-[0.08em] uppercase whitespace-nowrap ${
+                  isActive ? 'text-green-600' : isCompleted ? 'text-green-600/60' : 'text-gray-300'
+                }`}>{label}</span>
+              </button>
+              {idx < STEPS.length - 1 && (
+                <div className={`flex-shrink-0 h-px w-4 mt-3.5 ${isCompleted ? 'bg-green-600/25' : 'bg-gray-200'}`} />
+              )}
+            </>
+          )
+        })}
       </div>
 
-      {/* Selector torneo (pasos 2-5) */}
+      {/* Selector torneo (pasos 2-6) */}
       {step !== 'create' && (
         <div className="bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 mb-5 flex flex-wrap items-center gap-3">
           <span className="text-xs font-bold tracking-widest text-gray-400 uppercase whitespace-nowrap">Torneo</span>
@@ -531,11 +555,25 @@ export default function Admin() {
             <option value="">— Seleccioná —</option>
             {tournaments.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
-          {selectedTId && (
-            <span className="text-xs text-gray-400 whitespace-nowrap">
-              {zones.length} zonas · {pairs.length} parejas · {matches.length} partidos
-            </span>
-          )}
+          {selectedTId && (() => {
+            const t = tournaments.find(x => x.id === selectedTId)
+            const sc: Record<string, { label: string; cls: string }> = {
+              live:     { label: 'En vivo',    cls: 'bg-green-600/10 text-green-700 border-green-600/25' },
+              upcoming: { label: 'Próximo',    cls: 'bg-gray-100 text-gray-500 border-gray-200' },
+              finished: { label: 'Finalizado', cls: 'bg-gray-100 text-gray-400 border-gray-100' },
+            }
+            const cfg = sc[t?.status ?? 'upcoming'] ?? sc.upcoming
+            return (
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className={`text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-full border ${cfg.cls}`}>
+                  {cfg.label}
+                </span>
+                <span className="text-xs text-gray-400 whitespace-nowrap">
+                  {zones.length} zonas · {pairs.length} parejas · {matches.length} partidos
+                </span>
+              </div>
+            )
+          })()}
         </div>
       )}
 
@@ -643,17 +681,40 @@ export default function Admin() {
           {/* ── Sub-vista: Editar existente ── */}
           {createView === 'edit' && (
             <>
-              {/* Selector de torneo */}
-              <div className="bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 mb-5 flex flex-wrap items-center gap-3">
-                <span className="text-xs font-bold tracking-widest text-gray-400 uppercase whitespace-nowrap">Torneo</span>
-                <select
-                  className={sel + ' flex-1 min-w-0'}
-                  value={selectedTId}
-                  onChange={e => { loadTournamentData(e.target.value); loadEditForm(e.target.value) }}
-                >
-                  <option value="">— Seleccioná un torneo —</option>
-                  {tournaments.map(t => <option key={t.id} value={t.id}>{(t as any).name}</option>)}
-                </select>
+              {/* Lista de torneos con cards */}
+              <div className="flex flex-col gap-2 mb-5">
+                {tournaments.length === 0 && (
+                  <p className="text-gray-400 text-sm py-2">Sin torneos cargados.</p>
+                )}
+                {tournaments.map(t => {
+                  const isSelected = selectedTId === t.id
+                  const sc: Record<string, { label: string; cls: string }> = {
+                    live:     { label: 'En vivo',    cls: 'bg-green-600/10 text-green-700 border-green-600/25' },
+                    upcoming: { label: 'Próximo',    cls: 'bg-gray-100 text-gray-500 border-gray-200' },
+                    finished: { label: 'Finalizado', cls: 'bg-gray-50 text-gray-400 border-gray-100' },
+                  }
+                  const cfg = sc[t.status] ?? sc.upcoming
+                  return (
+                    <div
+                      key={t.id}
+                      onClick={() => { loadTournamentData(t.id); loadEditForm(t.id) }}
+                      className={`flex items-center gap-3 px-4 py-3 rounded-xl border cursor-pointer transition-all ${
+                        isSelected
+                          ? 'border-green-500/40 bg-green-600/5'
+                          : 'border-gray-100 bg-white hover:border-gray-200 hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className={`w-1 h-8 rounded-full flex-shrink-0 transition-all ${isSelected ? 'bg-green-600' : 'bg-gray-200'}`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-sm text-gray-900 truncate">{t.name}</div>
+                        <div className="text-[11px] text-gray-400 mt-0.5">{t.pairs_count} parejas</div>
+                      </div>
+                      <span className={`text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-full border flex-shrink-0 ${cfg.cls}`}>
+                        {cfg.label}
+                      </span>
+                    </div>
+                  )
+                })}
               </div>
 
               {!selectedTId ? (

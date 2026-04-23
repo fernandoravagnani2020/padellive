@@ -86,7 +86,14 @@ function FixtureView({ rounds, matches, teams }: { rounds: Round[]; matches: Lea
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
       {rounds.map(round => {
-        const rMatches = matches.filter(m => m.round_id === round.id)
+        const rMatches = matches
+          .filter(m => m.round_id === round.id)
+          .sort((a, b) => {
+            const da = (a as any).match_date ?? '', db = (b as any).match_date ?? ''
+            if (da !== db) return da.localeCompare(db)
+            const ta = a.scheduled_time ?? '', tb = b.scheduled_time ?? ''
+            return ta.localeCompare(tb)
+          })
         const isOpen = openRound === round.id
         const done = rMatches.filter(m => m.status === 'done').length
 
@@ -157,8 +164,8 @@ function FixtureView({ rounds, matches, teams }: { rounds: Round[]; matches: Lea
                                   <span key={si} style={{
                                     fontFamily:"'Bebas Neue', sans-serif", fontSize:15, letterSpacing:'0.02em',
                                     padding:'2px 8px', borderRadius:6,
-                                    background: s.home > s.away ? 'rgba(22,163,74,0.1)' : 'rgba(0,0,0,0.05)',
-                                    color: s.home > s.away ? '#15803d' : '#888',
+                                    background: (homeWin ? s.home > s.away : s.away > s.home) ? 'rgba(22,163,74,0.1)' : 'rgba(0,0,0,0.05)',
+                                    color: (homeWin ? s.home > s.away : s.away > s.home) ? '#15803d' : '#888',
                                   }}>{s.home}/{s.away}</span>
                                 ))}
                               </div>
@@ -255,13 +262,15 @@ export default function LeaguePublic() {
     <div>
       {/* Selector de liga si hay más de una */}
       {leagues.length > 1 && (
-        <div style={{ display:'flex', gap:8, overflowX:'auto', marginBottom:20, paddingBottom:4 }}>
+        <div style={{ display:'flex', gap:6, overflowX:'auto', marginBottom:20, paddingBottom:2 }}>
           {leagues.map(l => (
             <button key={l.id} onClick={() => setSelected(l.id)} style={{
-              padding:'6px 14px', borderRadius:8, border:'1px solid rgba(0,0,0,0.1)',
-              background: selected===l.id ? '#111' : '#fff',
+              padding:'7px 16px', borderRadius:8,
+              border: selected===l.id ? '1px solid transparent' : '1px solid rgba(0,0,0,0.1)',
+              background: selected===l.id ? '#0a0a0a' : '#f5f5f5',
               color: selected===l.id ? '#fff' : '#666',
-              fontWeight:600, fontSize:13, cursor:'pointer', fontFamily:'inherit', whiteSpace:'nowrap',
+              fontWeight: 600, fontSize: 13, cursor:'pointer', fontFamily:'inherit', whiteSpace:'nowrap',
+              boxShadow: selected===l.id ? '0 2px 8px rgba(0,0,0,0.2)' : 'none',
             }}>{l.name}</button>
           ))}
         </div>
@@ -285,7 +294,7 @@ export default function LeaguePublic() {
 
       {/* Tabs */}
       <div style={{ display:'flex', gap:2, background:'#f5f5f5', border:'1px solid rgba(0,0,0,0.07)', borderRadius:10, padding:4, marginBottom:20 }}>
-        {([['tabla','🏅 Tabla'],['fixture','📅 Fixture']] as const).map(([id, label]) => (
+        {([['tabla','Tabla'],['fixture','Fixture']] as const).map(([id, label]) => (
           <button key={id} onClick={() => setTab(id)} style={{
             flex:1, padding:'8px 16px', borderRadius:7, border:'none', cursor:'pointer', fontFamily:"'Bebas Neue', sans-serif",
             fontSize:15, letterSpacing:'0.05em',

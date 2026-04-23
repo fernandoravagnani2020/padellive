@@ -185,6 +185,11 @@ function BracketMatchCard({ m, getPairName }: BracketMatchCardProps) {
   const rows   = [{ pairId: m.pair1_id, sets: p1Sets }, { pairId: m.pair2_id, sets: p2Sets }]
   const cardH  = isDone && score?.length ? MATCH_H + 18 : MATCH_H
 
+  // Set ganado por el ganador del partido (no siempre es pair1)
+  const winnerIsPair1 = isDone && m.winner_pair_id === m.pair1_id
+  const setWonByWinner = (s: { p1: number; p2: number }) =>
+    winnerIsPair1 ? s.p1 > s.p2 : s.p2 > s.p1
+
   return (
     <div style={{
       height: `${cardH}px`, borderRadius: 10, overflow: 'hidden',
@@ -209,7 +214,7 @@ function BracketMatchCard({ m, getPairName }: BracketMatchCardProps) {
           <>
             <span style={{ color:'#ccc', marginRight:2 }}>Sets:</span>
             {score.map((s, i) => (
-              <span key={i} style={{ fontFamily:"'Bebas Neue', sans-serif", fontSize:11, padding:'1px 6px', borderRadius:4, background: s.p1>s.p2 ? 'rgba(22,163,74,0.12)' : 'rgba(0,0,0,0.06)', color: s.p1>s.p2 ? '#15803d' : '#999' }}>
+              <span key={i} style={{ fontFamily:"'Bebas Neue', sans-serif", fontSize:11, padding:'1px 6px', borderRadius:4, background: setWonByWinner(s) ? 'rgba(22,163,74,0.12)' : 'rgba(0,0,0,0.06)', color: setWonByWinner(s) ? '#15803d' : '#999' }}>
                 {s.p1}/{s.p2}
               </span>
             ))}

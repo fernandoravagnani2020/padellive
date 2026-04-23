@@ -25,9 +25,7 @@ function AppHeader() {
   const { user, logout } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
-  const isMobile = useIsMobile()
-  const isHome   = location.pathname === '/'
-  const isAdmin  = location.pathname === '/admin'
+  const isHome      = location.pathname === '/'
   const showTorneos = isHome && location.hash === '#torneos'
   const showLiga    = isHome && location.hash === '#liga'
 
@@ -35,6 +33,12 @@ function AppHeader() {
     await logout()
     navigate('/')
   }
+
+  const tabs = [
+    { hash:'#reservas', label:'Reservas', active: !showTorneos && !showLiga },
+    { hash:'#torneos',  label:'Torneos',  active: showTorneos },
+    { hash:'#liga',     label:'Liga',     active: showLiga },
+  ]
 
   return (
     <header style={{
@@ -45,77 +49,46 @@ function AppHeader() {
       paddingLeft: 'env(safe-area-inset-left)',
       paddingRight: 'env(safe-area-inset-right)',
     }}>
+      {/* Fila 1: logo + auth */}
       <div style={{
         maxWidth: 960, margin: '0 auto',
         padding: '0 16px',
-        height: 52,
+        height: 54,
         display: 'flex', alignItems: 'center',
         justifyContent: 'space-between',
         gap: 8,
       }}>
-        {/* Logo + nombre — responsive */}
-        <a href="/" style={{ textDecoration:'none', display:'flex', alignItems:'center', gap:8, flexShrink:0, minWidth:0 }}>
-          <img src="/logo.png" alt="Negro Padel" style={{ width:28, height:28, objectFit:'contain', flexShrink:0 }} />
-          <div style={{ lineHeight:1.15 }}>
-            {isMobile ? (
-              <>
-                <div style={{ fontFamily:"'Bebas Neue', sans-serif", fontSize:16, letterSpacing:'0.06em', color:'#fff' }}>Negro</div>
-                <div style={{ fontSize:9, letterSpacing:'0.08em', color:'rgba(255,255,255,0.4)', fontWeight:500 }}>Padel &amp; Encuentro</div>
-              </>
-            ) : (
-              <>
-                <div style={{ fontFamily:"'Bebas Neue', sans-serif", fontSize:15, letterSpacing:'0.05em', color:'#fff', whiteSpace:'nowrap' }}>
-                  Negro Padel <span style={{ color:'rgba(255,255,255,0.25)' }}>&amp;</span> Encuentro
-                </div>
-                <div style={{ fontSize:8, letterSpacing:'0.14em', color:'rgba(255,255,255,0.25)', textTransform:'uppercase', fontWeight:600 }}>
-                  Reservas &amp; Torneos
-                </div>
-              </>
-            )}
+        <a href="/" style={{ textDecoration:'none', display:'flex', alignItems:'center', gap:10, flexShrink:0, minWidth:0 }}>
+          <img src="/logo.png" alt="Negro Padel" style={{ width:32, height:32, objectFit:'contain', flexShrink:0 }} />
+          <div style={{ lineHeight:1.2 }}>
+            <div style={{ fontFamily:"'Bebas Neue', sans-serif", fontSize:18, letterSpacing:'0.05em', color:'#fff', whiteSpace:'nowrap' }}>
+              Negro Padel <span style={{ color:'rgba(255,255,255,0.22)' }}>&amp;</span> Encuentro
+            </div>
+            <div style={{ fontSize:9, letterSpacing:'0.14em', color:'rgba(255,255,255,0.28)', textTransform:'uppercase', fontWeight:600 }}>
+              Reservas &amp; Torneos
+            </div>
           </div>
         </a>
 
-        {/* Centro: tabs solo en home */}
-        {isHome && (
-          <nav style={{ display:'flex', gap:2, flexShrink:0 }}>
-            {[
-              { hash:'#reservas', label:'Reservas', active: !showTorneos && !showLiga },
-              { hash:'#torneos',  label:'Torneos',  active: showTorneos },
-              { hash:'#liga',     label:'Liga',     active: showLiga },
-            ].map(tab => (
-              <a key={tab.hash} href={tab.hash} style={{
-                padding:'5px 10px', borderRadius:6, fontSize:12,
-                fontWeight: tab.active ? 600 : 400,
-                textDecoration:'none', whiteSpace:'nowrap',
-                color: tab.active ? '#fff' : 'rgba(255,255,255,0.4)',
-                background: tab.active ? 'rgba(255,255,255,0.1)' : 'transparent',
-                border: '1px solid ' + (tab.active ? 'rgba(255,255,255,0.15)' : 'transparent'),
-                transition:'all 0.15s',
-              }}>{tab.label}</a>
-            ))}
-          </nav>
-        )}
-
-        {/* Auth */}
         <nav style={{ display:'flex', gap:4, alignItems:'center', flexShrink:0 }}>
           {user ? (
             <>
               <a href="/admin" style={{
-                padding:'5px 10px', borderRadius:6, fontSize:12, fontWeight:500,
+                padding:'5px 11px', borderRadius:6, fontSize:12, fontWeight:500,
                 textDecoration:'none', whiteSpace:'nowrap',
                 color: location.pathname==='/admin' ? '#fff' : 'rgba(255,255,255,0.45)',
                 background: location.pathname==='/admin' ? 'rgba(255,255,255,0.1)' : 'transparent',
                 border:'1px solid rgba(255,255,255,0.1)',
               }}>Torneos</a>
               <a href="/admin/liga" style={{
-                padding:'5px 10px', borderRadius:6, fontSize:12, fontWeight:500,
+                padding:'5px 11px', borderRadius:6, fontSize:12, fontWeight:500,
                 textDecoration:'none', whiteSpace:'nowrap',
                 color: location.pathname==='/admin/liga' ? '#fff' : 'rgba(255,255,255,0.45)',
                 background: location.pathname==='/admin/liga' ? 'rgba(255,255,255,0.1)' : 'transparent',
                 border:'1px solid rgba(255,255,255,0.1)',
               }}>Liga</a>
               <button onClick={handleLogout} style={{
-                padding:'5px 10px', borderRadius:6, fontSize:12,
+                padding:'5px 11px', borderRadius:6, fontSize:12,
                 background:'transparent', color:'rgba(255,255,255,0.25)',
                 border:'1px solid rgba(255,255,255,0.06)', cursor:'pointer', fontFamily:'inherit',
                 whiteSpace:'nowrap',
@@ -123,7 +96,7 @@ function AppHeader() {
             </>
           ) : (
             <a href="/login" style={{
-              padding:'5px 10px', borderRadius:6, fontSize:12, fontWeight:500,
+              padding:'5px 11px', borderRadius:6, fontSize:12, fontWeight:500,
               textDecoration:'none', color:'rgba(255,255,255,0.4)',
               border:'1px solid rgba(255,255,255,0.08)',
               whiteSpace:'nowrap',
@@ -131,6 +104,24 @@ function AppHeader() {
           )}
         </nav>
       </div>
+
+      {/* Fila 2: tabs de navegación (solo en home) */}
+      {isHome && (
+        <div style={{ borderTop:'1px solid rgba(255,255,255,0.05)' }}>
+          <div style={{ maxWidth:960, margin:'0 auto', display:'flex' }}>
+            {tabs.map(tab => (
+              <a key={tab.hash} href={tab.hash} style={{
+                flex:1, display:'flex', alignItems:'center', justifyContent:'center',
+                padding:'11px 0', fontSize:13, fontWeight: tab.active ? 600 : 500,
+                textDecoration:'none', whiteSpace:'nowrap',
+                color: tab.active ? '#fff' : 'rgba(255,255,255,0.38)',
+                borderBottom: '2px solid ' + (tab.active ? '#16a34a' : 'transparent'),
+                transition:'all 0.15s',
+              }}>{tab.label}</a>
+            ))}
+          </div>
+        </div>
+      )}
     </header>
   )
 }
@@ -185,7 +176,7 @@ function MainPage() {
         <div style={{
           background: 'linear-gradient(135deg, #000 0%, #1a1a1a 100%)',
           padding: '10px 10px calc(10px + env(safe-area-inset-bottom))',
-          minHeight: 'calc(100dvh - 52px)',
+          minHeight: 'calc(100dvh - 90px)',
         }}>
           <div style={{ maxWidth:1200, margin:'0 auto', background:'white', borderRadius:15, boxShadow:'0 10px 40px rgba(0,0,0,0.3)', overflow:'hidden' }}>
             <Reservas />

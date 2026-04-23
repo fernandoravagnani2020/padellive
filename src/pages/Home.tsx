@@ -102,12 +102,23 @@ export default function Home() {
     </div>
   )
 
-  function Section({ label, items }: { label: string; items: Tournament[] }) {
+  function SectionLabel({ isLive, text }: { isLive?: boolean; text: string }) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+        {isLive && <PulseDot />}
+        <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', color: isLive ? '#15803d' : '#bbb', textTransform: 'uppercase' }}>
+          {text}
+        </span>
+      </div>
+    )
+  }
+
+  function Section({ label, items, isLive }: { label: string; items: Tournament[]; isLive?: boolean }) {
     if (!items.length) return null
     return (
-      <div style={{ marginBottom:32 }}>
-        <div style={{ fontSize:10, fontWeight:700, letterSpacing:'0.12em', color:'#bbb', textTransform:'uppercase', marginBottom:12 }}>{label}</div>
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))', gap:10 }}>
+      <div style={{ marginBottom: 32 }}>
+        <SectionLabel isLive={isLive} text={label} />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 }}>
           {items.map(t => <TournamentCard key={t.id} t={t} />)}
         </div>
       </div>
@@ -116,7 +127,7 @@ export default function Home() {
 
   return (
     <div style={{ paddingTop: 24 }}>
-      <Section label="🟢 En vivo" items={live} />
+      <Section label="En vivo" items={live} isLive />
       <Section label="Próximos" items={upcoming} />
       <Section label="Historial" items={finished} />
 
