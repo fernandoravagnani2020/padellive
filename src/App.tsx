@@ -8,6 +8,7 @@ import Tournament from './pages/Tournament'
 import Home from './pages/Home'
 import LeaguePublic from './pages/LeaguePublic'
 import LeagueAdmin from './pages/LeagueAdmin'
+import SlotsData from './pages/SlotsData'
 
 // ── Hook responsive ───────────────────────────────────────
 function useIsMobile() {
@@ -210,6 +211,7 @@ export default function App() {
       <div style={{ minHeight:'100vh' }}>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/slots" element={<SlotsData />} />
           <Route path="/" element={<MainPage />} />
           <Route element={<Layout />}>
             <Route path="/torneo/:id"  element={<Tournament />} />
