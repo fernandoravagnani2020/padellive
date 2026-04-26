@@ -22,7 +22,12 @@ import sys
 import ssl
 import smtplib
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
+# Siempre hora Argentina (UTC-3), sin importar en qué servidor corra
+ART = timezone(timedelta(hours=-3))
+def now_art() -> datetime:
+    return datetime.now(ART).replace(tzinfo=None)
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email.mime.text import MIMEText
@@ -81,11 +86,11 @@ def _slot_end(fecha: str, hora: str) -> datetime:
     return datetime(y, m, d, h, mn) + timedelta(minutes=90)
 
 def turno_finalizado(fecha: str, hora: str) -> bool:
-    return datetime.now() > _slot_end(fecha, hora)
+    return now_art() > _slot_end(fecha, hora)
 
 def turno_en_curso(fecha: str, hora: str) -> bool:
     ini = _slot_end(fecha, hora) - timedelta(minutes=90)
-    return ini <= datetime.now() <= _slot_end(fecha, hora)
+    return ini <= now_art() <= _slot_end(fecha, hora)
 
 def get_price(precios, dia: str, hora: str) -> int:
     if not precios:
@@ -109,7 +114,7 @@ def fetch_api() -> dict:
 def get_libre_slots(api_data: dict) -> list:
     """Devuelve los turnos libres de HOY a partir de HORA_INICIO."""
     precios = api_data.get('precios')
-    hoy     = datetime.now().date()
+    hoy     = now_art().date()
     slots   = []
 
     for day in api_data.get('week', []):
@@ -211,7 +216,7 @@ def send_mail(image_path: str, slots: list) -> None:
         print("⚠️  Mail no configurado (falta EMAIL_FROM / EMAIL_PASSWORD / EMAIL_TO en .env)")
         return
 
-    hoy      = datetime.now()
+    hoy      = now_art()
     dia_str  = hoy.strftime('%d/%m/%Y')
     n_libres = len(slots)
 
@@ -265,10 +270,10 @@ if __name__ == '__main__':
         if idx + 1 < len(sys.argv):
             out = sys.argv[idx + 1]
     if out is None:
-        fecha_hoy = datetime.now().strftime('%Y-%m-%d')
+        fecha_hoy = now_art().strftime('%Y-%m-%d')
         out = os.path.join(OUTPUT_DIR, f'turnos_{fecha_hoy}.png')
 
-    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M')}] Iniciando generación de flyer...")
+    print(f"[{now_art().strftime('%Y-%m-%d %H:%M')}] Iniciando generación de flyer...")
     try:
         api_data = fetch_api()
         slots    = get_libre_slots(api_data)
