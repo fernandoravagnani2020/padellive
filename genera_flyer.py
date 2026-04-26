@@ -33,8 +33,8 @@ from PIL import Image, ImageDraw, ImageFont
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE   = os.path.join(BASE_DIR, 'public', 'Plantilla turnos.PNG')
 OUTPUT_DIR = os.path.join(BASE_DIR, 'flyers')
-FONT_BLACK = '/Users/fernandoravagnani/Library/Fonts/CamptonBlack.otf'
-FONT_BOLD  = '/Users/fernandoravagnani/Library/Fonts/CamptonBold.otf'
+FONT_BLACK = os.environ.get('FONT_BLACK', '/Users/fernandoravagnani/Library/Fonts/CamptonBlack.otf')
+FONT_BOLD  = os.environ.get('FONT_BOLD',  '/Users/fernandoravagnani/Library/Fonts/CamptonBold.otf')
 
 # ── API ───────────────────────────────────────────────────────────────────────
 API_URL = (
@@ -43,7 +43,7 @@ API_URL = (
 )
 TIME_SLOTS  = ['09:30','11:00','12:30','14:30','16:00','17:30','19:00','20:30','22:00']
 DIAS_FDS    = ['SÁBADO', 'DOMINGO']
-MONTH_NAMES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
+MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 
 HORA_INICIO = '14:30'   # primer turno a incluir en el flyer
 
@@ -158,11 +158,11 @@ def generate_flyer(slots: list, output_path: str) -> None:
     area_h = GRID_H - PAD_Y * 2
 
     if len(slots) <= 3:
-        sz_fecha, sz_hora, sz_precio = 38, 72, 48
+        sz_fecha, sz_hora, sz_hs = 38, 72, 36
     elif len(slots) <= 5:
-        sz_fecha, sz_hora, sz_precio = 34, 62, 42
+        sz_fecha, sz_hora, sz_hs = 34, 62, 30
     else:
-        sz_fecha, sz_hora, sz_precio = 30, 52, 36
+        sz_fecha, sz_hora, sz_hs = 30, 52, 26
 
     row_h   = min(area_h // n_rows, 120)
     total_h = n_rows * row_h
@@ -170,20 +170,27 @@ def generate_flyer(slots: list, output_path: str) -> None:
     x_left  = GRID['x1'] + PAD_X
     x_right = GRID['x2'] - PAD_X
 
-    fnt_fecha  = ImageFont.truetype(FONT_BOLD,  sz_fecha)
-    fnt_hora   = ImageFont.truetype(FONT_BLACK, sz_hora)
-    fnt_precio = ImageFont.truetype(FONT_BOLD,  sz_precio)
+    fnt_fecha = ImageFont.truetype(FONT_BOLD,  sz_fecha)
+    fnt_hora  = ImageFont.truetype(FONT_BLACK, sz_hora)
+    fnt_hs    = ImageFont.truetype(FONT_BOLD,  sz_hs)
 
     # Header de fecha
     draw.text((cx, y + row_h // 2), fecha_label, font=fnt_fecha, fill=LIME, anchor='mm')
     y += row_h
     draw.line([(x_left, y - 6), (x_right, y - 6)], fill=DIVIDER, width=1)
 
-    # Filas de turnos
+    # Filas de turnos — centradas con "HS" al lado
     for slot in slots:
         cy = y + row_h // 2
-        draw.text((x_left, cy), slot['hora'],               font=fnt_hora,   fill=WHITE, anchor='lm')
-        draw.text((x_right, cy), fmt_price(slot['precio']), font=fnt_precio, fill=LIME,  anchor='rm')
+        # Medir ancho total de "HH:MM HS" para centrarlo como bloque
+        w_hora = fnt_hora.getlength(slot['hora'])
+        w_sep  = fnt_hs.getlength(' ')
+        w_hs   = fnt_hs.getlength('HS')
+        total_w = w_hora + w_sep + w_hs
+        x_hora = cx - total_w / 2
+        x_hs   = x_hora + w_hora + w_sep
+        draw.text((x_hora, cy), slot['hora'], font=fnt_hora, fill=WHITE, anchor='lm')
+        draw.text((x_hs,   cy), 'HS',         font=fnt_hs,  fill=LIME,  anchor='lm')
         y += row_h
 
     _save(img, output_path)

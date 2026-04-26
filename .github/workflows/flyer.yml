@@ -1,0 +1,36 @@
+name: Flyer turnos diarios
+
+on:
+  schedule:
+    - cron: '0 11 * * *'   # 8:00 AM Argentina (UTC-3)
+  workflow_dispatch:         # botón manual desde GitHub (celular / browser)
+
+jobs:
+  generar-flyer:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependencias
+        run: pip install Pillow requests
+
+      - name: Restaurar fuentes desde secrets
+        run: |
+          echo "${{ secrets.FONT_BLACK_B64 }}" | base64 -d > /tmp/CamptonBlack.otf
+          echo "${{ secrets.FONT_BOLD_B64 }}"  | base64 -d > /tmp/CamptonBold.otf
+
+      - name: Generar y enviar flyer
+        env:
+          FONT_BLACK:      /tmp/CamptonBlack.otf
+          FONT_BOLD:       /tmp/CamptonBold.otf
+          EMAIL_FROM:      ${{ secrets.EMAIL_FROM }}
+          EMAIL_PASSWORD:  ${{ secrets.EMAIL_PASSWORD }}
+          EMAIL_TO:        ${{ secrets.EMAIL_TO }}
+        run: python3 genera_flyer.py
