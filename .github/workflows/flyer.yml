@@ -23,8 +23,8 @@ jobs:
 
       - name: Restaurar fuentes desde secrets
         run: |
-          echo "${{ secrets.FONT_BLACK_B64 }}" | base64 -d > /tmp/CamptonBlack.otf
-          echo "${{ secrets.FONT_BOLD_B64 }}"  | base64 -d > /tmp/CamptonBold.otf
+          printf '%s%s' "${{ secrets.FONT_BLACK_B64_1 }}" "${{ secrets.FONT_BLACK_B64_2 }}" | base64 -d > /tmp/CamptonBlack.otf
+          printf '%s%s' "${{ secrets.FONT_BOLD_B64_1 }}"  "${{ secrets.FONT_BOLD_B64_2 }}"  | base64 -d > /tmp/CamptonBold.otf
 
       - name: Generar y enviar flyer
         env:
