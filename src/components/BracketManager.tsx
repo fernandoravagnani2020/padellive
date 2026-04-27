@@ -462,7 +462,12 @@ function BracketSetup({
 
             <div className="space-y-3">
               {Array.from({ length: matchCounts[round] }, (_, i) => {
-                const c = arr[i] ?? { pair1: null, pair2: null, winnerToMatch: null, winnerToSlot: null }
+                const c: MatchConfig = arr[i] ?? {
+                  pair1_id: null, pair2_id: null,
+                  pair1_source_zone_id: null, pair1_source_position: null,
+                  pair2_source_zone_id: null, pair2_source_position: null,
+                  winnerToMatch: null, winnerToSlot: null,
+                }
 
                 return (
                   <div key={i} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
