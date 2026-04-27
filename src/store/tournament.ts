@@ -56,6 +56,11 @@ export interface Match {
   winner_goes_to_slot?: number | null
   loser_goes_to_match?: number | null
   loser_goes_to_slot?: number | null
+  // Placeholders para slots del cuadro que vienen de "1° Zona A", etc.
+  pair1_source_zone_id?: string | null
+  pair1_source_position?: number | null
+  pair2_source_zone_id?: string | null
+  pair2_source_position?: number | null
 }
 
 export interface Standing {

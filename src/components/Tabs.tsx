@@ -166,6 +166,10 @@ interface BracketMatchCardProps {
     id: string
     pair1_id: string | null
     pair2_id: string | null
+    pair1_source_zone_id?: string | null
+    pair1_source_position?: number | null
+    pair2_source_zone_id?: string | null
+    pair2_source_position?: number | null
     winner_pair_id: string | null
     status: string
     score: any
@@ -174,15 +178,30 @@ interface BracketMatchCardProps {
     court: string | null
   }
   getPairName: (id: string) => string
+  getZoneName?: (zoneId: string) => string
 }
 
-function BracketMatchCard({ m, getPairName }: BracketMatchCardProps) {
+function BracketMatchCard({ m, getPairName, getZoneName }: BracketMatchCardProps) {
   const score  = m.score as { set: number; p1: number; p2: number }[] | null
   const p1Sets = score?.filter(s => s.p1 > s.p2).length ?? 0
   const p2Sets = score?.filter(s => s.p2 > s.p1).length ?? 0
   const isLive = m.status === 'live'
   const isDone = m.status === 'done'
-  const rows   = [{ pairId: m.pair1_id, sets: p1Sets }, { pairId: m.pair2_id, sets: p2Sets }]
+
+  // Calcula el label que se muestra: pareja, placeholder "1° Zona A", o "Por definir"
+  function slotLabel(slot: 1 | 2): string {
+    const id = slot === 1 ? m.pair1_id : m.pair2_id
+    if (id) return getPairName(id)
+    const sz = slot === 1 ? m.pair1_source_zone_id : m.pair2_source_zone_id
+    const sp = slot === 1 ? m.pair1_source_position : m.pair2_source_position
+    if (sz && sp && getZoneName) return `${sp}° Zona ${getZoneName(sz)}`
+    return ''
+  }
+
+  const rows = [
+    { pairId: m.pair1_id, sets: p1Sets, label: slotLabel(1) },
+    { pairId: m.pair2_id, sets: p2Sets, label: slotLabel(2) },
+  ]
   const cardH  = isDone && score?.length ? MATCH_H + 18 : MATCH_H
 
   // Set ganado por el ganador del partido (no siempre es pair1)
@@ -240,8 +259,8 @@ function BracketMatchCard({ m, getPairName }: BracketMatchCardProps) {
             background: isWinner ? 'rgba(22,163,74,0.05)' : 'transparent',
           }}>
             <div style={{ width:3, height:16, borderRadius:2, flexShrink:0, background: isWinner ? '#16a34a' : 'transparent' }} />
-            <span style={{ flex:1, fontSize:12, fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color: isWinner ? '#15803d' : isLoser ? '#ccc' : row.pairId ? '#111' : '#ccc', fontStyle: row.pairId ? 'normal' : 'italic' }}>
-              {row.pairId ? getPairName(row.pairId) : 'Por definir'}
+            <span style={{ flex:1, fontSize:12, fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color: isWinner ? '#15803d' : isLoser ? '#ccc' : row.pairId ? '#111' : '#999', fontStyle: row.pairId ? 'normal' : 'italic' }}>
+              {row.pairId ? getPairName(row.pairId) : (row.label || 'Por definir')}
             </span>
             {isDone && row.pairId && (
               <span style={{ fontFamily:"'Bebas Neue', sans-serif", fontSize:20, flexShrink:0, color: isWinner ? '#16a34a' : '#ccc' }}>
@@ -316,11 +335,12 @@ function ConnectorCol({
 // Esto garantiza que los partidos se centren correctamente sin importar la estructura.
 
 function BracketCanvas({
-  presentRounds, elimMatches, getPairName, champion,
+  presentRounds, elimMatches, getPairName, getZoneName, champion,
 }: {
   presentRounds: string[]
   elimMatches: any[]
   getPairName: (id: string) => string
+  getZoneName: (id: string) => string
   champion: string | null
 }) {
   if (!presentRounds.length) return null
@@ -432,7 +452,7 @@ function BracketCanvas({
                   width: `${COL_W}px`,
                 }}
               >
-                <BracketMatchCard m={m as any} getPairName={getPairName} />
+                <BracketMatchCard m={m as any} getPairName={getPairName} getZoneName={getZoneName} />
               </div>
             ))}
           </div>
@@ -463,7 +483,9 @@ function BracketCanvas({
 }
 
 export function BracketTab() {
-  const { matches, getPairName } = useTournamentStore()
+  const { matches, zones, getPairName } = useTournamentStore()
+
+  const getZoneName = (id: string) => zones.find(z => z.id === id)?.name ?? '?'
 
   const elimMatches  = matches.filter(m => ROUND_ORDER.includes(m.round as string))
   const presentRounds = ROUND_ORDER.filter(r => elimMatches.some(m => m.round === r))
@@ -496,7 +518,7 @@ export function BracketTab() {
 
       {/* Bracket scrollable */}
       <div style={{ overflowX:'auto', margin:'0 -16px', padding:'0 16px 24px' }}>
-        <BracketCanvas presentRounds={presentRounds} elimMatches={elimMatches} getPairName={getPairName} champion={champion} />
+        <BracketCanvas presentRounds={presentRounds} elimMatches={elimMatches} getPairName={getPairName} getZoneName={getZoneName} champion={champion} />
       </div>
 
       {/* Leyenda */}

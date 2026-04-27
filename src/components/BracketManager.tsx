@@ -19,8 +19,13 @@ interface BMatch {
   day: string | null
   scheduled_time: string | null
   court: string | null
-  winner_goes_to_match?: number | null   // match_order destino en ronda siguiente
-  winner_goes_to_slot?: number | null    // 1 = pair1, 2 = pair2 del destino
+  winner_goes_to_match?: number | null
+  winner_goes_to_slot?: number | null
+  // Placeholders: cuando el slot viene de "1° Zona A"
+  pair1_source_zone_id?: string | null
+  pair1_source_position?: number | null
+  pair2_source_zone_id?: string | null
+  pair2_source_position?: number | null
 }
 
 interface Props {
@@ -216,19 +221,107 @@ function EditPanel({
 // 3) A qué slot exacto va el ganador de cada partido
 
 interface MatchConfig {
-  pair1: string | null
-  pair2: string | null
-  // dónde va el ganador
-  winnerToMatch: number | null  // match_order destino en ronda siguiente
-  winnerToSlot: 1 | 2 | null   // slot del destino
+  // Pair concreta (UUID) — alternativa al placeholder
+  pair1_id: string | null
+  pair2_id: string | null
+  // Placeholder "1° Zona A" — solo uno de los dos sets debe estar usado por slot
+  pair1_source_zone_id: string | null
+  pair1_source_position: number | null
+  pair2_source_zone_id: string | null
+  pair2_source_position: number | null
+  winnerToMatch: number | null
+  winnerToSlot: 1 | 2 | null
+}
+
+// Construye el value del <select> a partir de la config del slot
+function slotValue(c: MatchConfig, slot: 1 | 2): string {
+  const id   = slot === 1 ? c.pair1_id : c.pair2_id
+  const sz   = slot === 1 ? c.pair1_source_zone_id : c.pair2_source_zone_id
+  const sp   = slot === 1 ? c.pair1_source_position : c.pair2_source_position
+  if (id) return `pair:${id}`
+  if (sz && sp) return `slot:${sz}:${sp}`
+  return ''
+}
+
+// Aplica el valor del <select> a una config (slot 1 o 2)
+function applySlotValue(c: MatchConfig, slot: 1 | 2, val: string): MatchConfig {
+  const next = { ...c }
+  if (slot === 1) {
+    next.pair1_id = null; next.pair1_source_zone_id = null; next.pair1_source_position = null
+  } else {
+    next.pair2_id = null; next.pair2_source_zone_id = null; next.pair2_source_position = null
+  }
+  if (val.startsWith('pair:')) {
+    const id = val.slice(5)
+    if (slot === 1) next.pair1_id = id
+    else            next.pair2_id = id
+  } else if (val.startsWith('slot:')) {
+    const [, sz, sp] = val.split(':')
+    if (slot === 1) { next.pair1_source_zone_id = sz; next.pair1_source_position = +sp }
+    else            { next.pair2_source_zone_id = sz; next.pair2_source_position = +sp }
+  }
+  return next
+}
+
+// Selector unificado: permite elegir un placeholder de zona ("1° Zona A") o una pareja específica
+function SlotSelector({
+  label, value, onChange, zones, zoneSizes, pairs, assignedPairs, assignedSlots, currentValue,
+}: {
+  label: string
+  value: string
+  onChange: (val: string) => void
+  zones: Zone[]
+  zoneSizes: Record<string, number>
+  pairs: Pair[]
+  assignedPairs: Set<string>
+  assignedSlots: Set<string>
+  currentValue: string
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-[10px] font-bold text-gray-600 w-16 flex-shrink-0">{label}</span>
+      <select value={value} onChange={e => onChange(e.target.value)}
+        className="flex-1 bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-gray-900 text-xs outline-none focus:border-green-600 cursor-pointer">
+        <option value="">— vacío (se define con ganador anterior) —</option>
+        <optgroup label="Posiciones de zona (placeholders)">
+          {zones.map(z => {
+            const size = zoneSizes[z.id] ?? 0
+            return Array.from({ length: size }, (_, i) => i + 1).map(pos => {
+              const slotKey = `${z.id}:${pos}`
+              const taken   = assignedSlots.has(slotKey) && currentValue !== `slot:${slotKey}`
+              return (
+                <option key={slotKey} value={`slot:${z.id}:${pos}`} disabled={taken}>
+                  {pos}° Zona {z.name}{taken ? ' (ya asignado)' : ''}
+                </option>
+              )
+            })
+          })}
+        </optgroup>
+        <optgroup label="Pareja específica">
+          {pairs.map(p => {
+            const taken = assignedPairs.has(p.id) && currentValue !== `pair:${p.id}`
+            return (
+              <option key={p.id} value={`pair:${p.id}`} disabled={taken}>
+                {p.display_name}{taken ? ' (ya asignada)' : ''}
+              </option>
+            )
+          })}
+        </optgroup>
+      </select>
+      {value && (
+        <button onClick={() => onChange('')}
+          className="text-gray-600 hover:text-red-400 text-xs px-1 flex-shrink-0">✕</button>
+      )}
+    </div>
+  )
 }
 
 function BracketSetup({
-  classified, zones, pairs, tournamentId, onSaved,
+  zones, pairs, zoneSizes, tournamentId, onSaved,
 }: {
-  classified: { pair_id: string; zone: string; position: number }[]
   zones: Zone[]
   pairs: Pair[]
+  zoneSizes: Record<string, number>   // zone_id → cantidad de parejas
   tournamentId: string
   onSaved: () => void
 }) {
@@ -248,7 +341,9 @@ function BracketSetup({
         const n = matchCounts[r]
         const existing = prev[r] ?? []
         next[r] = Array.from({ length: n }, (_, i) => existing[i] ?? {
-          pair1: null, pair2: null,
+          pair1_id: null, pair2_id: null,
+          pair1_source_zone_id: null, pair1_source_position: null,
+          pair2_source_zone_id: null, pair2_source_position: null,
           winnerToMatch: null, winnerToSlot: null,
         })
       })
@@ -270,12 +365,15 @@ function BracketSetup({
     })
   }
 
-  // Todas las parejas ya asignadas como pair1 o pair2
+  // Slots ya tomados (sea pareja directa o placeholder de zona)
   const assignedPairs = new Set<string>()
+  const assignedSlots = new Set<string>()  // formato "zoneId:position"
   ROUND_ORDER.forEach(r => {
     (configs[r] ?? []).forEach(c => {
-      if (c.pair1) assignedPairs.add(c.pair1)
-      if (c.pair2) assignedPairs.add(c.pair2)
+      if (c.pair1_id) assignedPairs.add(c.pair1_id)
+      if (c.pair2_id) assignedPairs.add(c.pair2_id)
+      if (c.pair1_source_zone_id && c.pair1_source_position) assignedSlots.add(`${c.pair1_source_zone_id}:${c.pair1_source_position}`)
+      if (c.pair2_source_zone_id && c.pair2_source_position) assignedSlots.add(`${c.pair2_source_zone_id}:${c.pair2_source_position}`)
     })
   })
 
@@ -295,24 +393,32 @@ function BracketSetup({
     for (const round of activeRounds) {
       const arr = configs[round] ?? []
       for (let i = 0; i < matchCounts[round]; i++) {
-        const c = arr[i] ?? { pair1: null, pair2: null, winnerToMatch: null, winnerToSlot: null }
+        const c = arr[i]
         toInsert.push({
           tournament_id: tournamentId,
           zone_id: null,
           round,
           match_order: i + 1,
-          pair1_id: c.pair1 ?? null,
-          pair2_id: c.pair2 ?? null,
-          winner_goes_to_match: c.winnerToMatch ?? null,
-          winner_goes_to_slot: c.winnerToSlot ?? null,
+          pair1_id: c?.pair1_id ?? null,
+          pair2_id: c?.pair2_id ?? null,
+          pair1_source_zone_id: c?.pair1_source_zone_id ?? null,
+          pair1_source_position: c?.pair1_source_position ?? null,
+          pair2_source_zone_id: c?.pair2_source_zone_id ?? null,
+          pair2_source_position: c?.pair2_source_position ?? null,
+          winner_goes_to_match: c?.winnerToMatch ?? null,
+          winner_goes_to_slot: c?.winnerToSlot ?? null,
           status: 'upcoming',
         })
       }
     }
 
     const { error } = await supabase.from('matches').insert(toInsert)
+    if (error) { setSaving(false); showFb('❌ ' + error.message); return }
+
+    // Trigger sync de las posiciones que ya estén determinadas
+    await supabase.rpc('sync_bracket_pairs', { p_tournament_id: tournamentId })
+
     setSaving(false)
-    if (error) { showFb('❌ ' + error.message); return }
     showFb(`✓ Cuadro publicado: ${toInsert.length} partidos.`)
     onSaved()
   }
@@ -372,68 +478,30 @@ function BracketSetup({
 
                     <div className="p-3 space-y-2">
                       {/* Pareja 1 */}
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold text-gray-600 w-16 flex-shrink-0">Pareja 1</span>
-                        <select value={c.pair1 ?? ''}
-                          onChange={e => updateConfig(round, i, { pair1: e.target.value || null })}
-                          className="flex-1 bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-gray-900 text-xs outline-none focus:border-green-600 cursor-pointer">
-                          <option value="">— vacío (se define con ganador anterior) —</option>
-                          <optgroup label="Clasificados de zonas">
-                            {classified.map(cl => (
-                              <option key={cl.pair_id} value={cl.pair_id}
-                                disabled={assignedPairs.has(cl.pair_id) && c.pair1 !== cl.pair_id}>
-                                {cl.position}° Zona {cl.zone} — {getPairName(cl.pair_id)}
-                                {assignedPairs.has(cl.pair_id) && c.pair1 !== cl.pair_id ? ' (ya asignada)' : ''}
-                              </option>
-                            ))}
-                          </optgroup>
-                          <optgroup label="Todas las parejas del torneo">
-                            {pairs.map(p => (
-                              <option key={p.id} value={p.id}
-                                disabled={assignedPairs.has(p.id) && c.pair1 !== p.id}>
-                                {p.display_name}
-                                {assignedPairs.has(p.id) && c.pair1 !== p.id ? ' (ya asignada)' : ''}
-                              </option>
-                            ))}
-                          </optgroup>
-                        </select>
-                        {c.pair1 && (
-                          <button onClick={() => updateConfig(round, i, { pair1: null })}
-                            className="text-gray-600 hover:text-red-400 text-xs px-1 flex-shrink-0">✕</button>
-                        )}
-                      </div>
+                      <SlotSelector
+                        label="Pareja 1"
+                        value={slotValue(c, 1)}
+                        onChange={val => updateConfig(round, i, applySlotValue(c, 1, val))}
+                        zones={zones}
+                        zoneSizes={zoneSizes}
+                        pairs={pairs}
+                        assignedPairs={assignedPairs}
+                        assignedSlots={assignedSlots}
+                        currentValue={slotValue(c, 1)}
+                      />
 
                       {/* Pareja 2 */}
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold text-gray-600 w-16 flex-shrink-0">Pareja 2</span>
-                        <select value={c.pair2 ?? ''}
-                          onChange={e => updateConfig(round, i, { pair2: e.target.value || null })}
-                          className="flex-1 bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-gray-900 text-xs outline-none focus:border-green-600 cursor-pointer">
-                          <option value="">— vacío (se define con ganador anterior) —</option>
-                          <optgroup label="Clasificados de zonas">
-                            {classified.map(cl => (
-                              <option key={cl.pair_id} value={cl.pair_id}
-                                disabled={assignedPairs.has(cl.pair_id) && c.pair2 !== cl.pair_id}>
-                                {cl.position}° Zona {cl.zone} — {getPairName(cl.pair_id)}
-                                {assignedPairs.has(cl.pair_id) && c.pair2 !== cl.pair_id ? ' (ya asignada)' : ''}
-                              </option>
-                            ))}
-                          </optgroup>
-                          <optgroup label="Todas las parejas del torneo">
-                            {pairs.map(p => (
-                              <option key={p.id} value={p.id}
-                                disabled={assignedPairs.has(p.id) && c.pair2 !== p.id}>
-                                {p.display_name}
-                                {assignedPairs.has(p.id) && c.pair2 !== p.id ? ' (ya asignada)' : ''}
-                              </option>
-                            ))}
-                          </optgroup>
-                        </select>
-                        {c.pair2 && (
-                          <button onClick={() => updateConfig(round, i, { pair2: null })}
-                            className="text-gray-600 hover:text-red-400 text-xs px-1 flex-shrink-0">✕</button>
-                        )}
-                      </div>
+                      <SlotSelector
+                        label="Pareja 2"
+                        value={slotValue(c, 2)}
+                        onChange={val => updateConfig(round, i, applySlotValue(c, 2, val))}
+                        zones={zones}
+                        zoneSizes={zoneSizes}
+                        pairs={pairs}
+                        assignedPairs={assignedPairs}
+                        assignedSlots={assignedSlots}
+                        currentValue={slotValue(c, 2)}
+                      />
 
                       {/* Destino del ganador */}
                       {nextRound && nextCount > 0 && (
@@ -496,6 +564,18 @@ export default function BracketManager({ tournamentId, zones, pairs, courtsCount
     if (!id) return 'Por definir'
     return pairs.find(p => p.id === id)?.display_name ?? '—'
   }
+  // Devuelve "1° Zona A" si el slot está vacío pero tiene placeholder
+  function getSlotLabel(m: BMatch, slot: 1 | 2): string {
+    const id   = slot === 1 ? m.pair1_id : m.pair2_id
+    if (id) return getPairName(id)
+    const sz   = slot === 1 ? m.pair1_source_zone_id : m.pair2_source_zone_id
+    const sp   = slot === 1 ? m.pair1_source_position : m.pair2_source_position
+    if (sz && sp) {
+      const zoneName = zones.find(z => z.id === sz)?.name ?? '?'
+      return `${sp}° Zona ${zoneName}`
+    }
+    return 'Por definir'
+  }
   function showFb(msg: string) { setFb(msg); setTimeout(() => setFb(''), 4000) }
 
   useEffect(() => { load() }, [tournamentId])
@@ -529,14 +609,10 @@ export default function BracketManager({ tournamentId, zones, pairs, courtsCount
   const existingRounds = [...new Set(bracketMatches.map(m => m.round))]
     .sort((a,b) => ROUND_ORDER.indexOf(a) - ROUND_ORDER.indexOf(b))
 
-  const classified = zones.flatMap(z => {
-    const zst = standings.filter(s => s.zone_id === z.id).sort((a,b) => a.position - b.position)
-    const zone = zones.find(x => x.id === z.id)
-    return zst.slice(0,2).map(s => ({
-      pair_id: s.pair_id,
-      zone: zone?.name ?? '?',
-      position: s.position,
-    }))
+  // Tamaños de zona derivados de standings
+  const zoneSizes: Record<string, number> = {}
+  zones.forEach(z => {
+    zoneSizes[z.id] = standings.filter(s => s.zone_id === z.id).length
   })
 
   async function deleteAllBracket() {
@@ -593,9 +669,9 @@ export default function BracketManager({ tournamentId, zones, pairs, courtsCount
       {/* ── Armar cuadro ── */}
       {view === 'setup' && (
         <BracketSetup
-          classified={classified}
           zones={zones}
           pairs={pairs}
+          zoneSizes={zoneSizes}
           tournamentId={tournamentId}
           onSaved={() => { load(); onRefresh() }}
         />
@@ -644,12 +720,20 @@ export default function BracketManager({ tournamentId, zones, pairs, courtsCount
                       onClick={() => setExpandedId(isOpen ? null : m.id)}>
                       <span className="text-xs font-bold text-gray-600 w-5 flex-shrink-0">#{idx+1}</span>
                       <div className="flex-1 min-w-0">
-                        <div className={`text-sm font-semibold truncate ${m.winner_pair_id === m.pair1_id ? 'text-green-600' : m.winner_pair_id ? 'text-gray-600' : ''}`}>
-                          {getPairName(m.pair1_id)}
+                        <div className={`text-sm font-semibold truncate ${
+                          m.winner_pair_id === m.pair1_id ? 'text-green-600' :
+                          m.winner_pair_id ? 'text-gray-600' :
+                          !m.pair1_id ? 'text-gray-400 italic' : ''
+                        }`}>
+                          {getSlotLabel(m, 1)}
                         </div>
                         <div className="text-[10px] text-gray-600 my-0.5">vs</div>
-                        <div className={`text-sm font-semibold truncate ${m.winner_pair_id === m.pair2_id ? 'text-green-600' : m.winner_pair_id ? 'text-gray-600' : ''}`}>
-                          {getPairName(m.pair2_id)}
+                        <div className={`text-sm font-semibold truncate ${
+                          m.winner_pair_id === m.pair2_id ? 'text-green-600' :
+                          m.winner_pair_id ? 'text-gray-600' :
+                          !m.pair2_id ? 'text-gray-400 italic' : ''
+                        }`}>
+                          {getSlotLabel(m, 2)}
                         </div>
                         {/* Destino del ganador */}
                         {(m as any).winner_goes_to_match && (m as any).winner_goes_to_slot && (
