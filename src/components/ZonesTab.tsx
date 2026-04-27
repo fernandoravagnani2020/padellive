@@ -67,6 +67,8 @@ export default function ZonesTab() {
         // ¿Es zona-4? Tiene partidos R1 o R2
         const isZona4   = matches.some(m => m.round === 'group_r1' || m.round === 'group_r2')
         const classifiesCount = isZona4 ? 3 : Math.min(2, standings.length)
+        // Solo mostrar "Clasifica" / "Eliminado" si hay al menos un partido jugado
+        const anyPlayed = standings.some(s => s.played > 0)
 
         // Separar fixture en R1 y R2 (si zona-4) o todos juntos (round-robin)
         const r1Matches = matches.filter(m => m.round === 'group_r1')
@@ -106,8 +108,8 @@ export default function ZonesTab() {
               <div style={{ display:'grid', gap:8, padding:'12px 12px 0' }}>
                 {standings.map((s, i) => {
                   const pos = s.position ?? (i + 1)
-                  const classifies = pos <= classifiesCount
-                  const eliminated = isZona4 && pos === 4
+                  const classifies = anyPlayed && pos <= classifiesCount
+                  const eliminated = anyPlayed && isZona4 && pos === 4
                   return (
                     <div key={s.pair_id} style={{
                       background: classifies ? '#f3faf5' : eliminated ? '#fafafa' : '#f9f9f9',
@@ -160,8 +162,8 @@ export default function ZonesTab() {
                   <tbody>
                     {standings.map((s, i) => {
                       const pos = s.position ?? (i + 1)
-                      const classifies = pos <= classifiesCount
-                      const eliminated = isZona4 && pos === 4
+                      const classifies = anyPlayed && pos <= classifiesCount
+                      const eliminated = anyPlayed && isZona4 && pos === 4
                       return (
                         <tr key={s.pair_id} style={{
                           borderBottom:'1px solid rgba(0,0,0,0.04)',
