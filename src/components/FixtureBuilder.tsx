@@ -4,23 +4,32 @@ import { supabase } from '../lib/supabase'
 interface Zone { id: string; name: string; order_num: number }
 interface Pair { id: string; display_name: string }
 
+type ZoneFormat = 'round_robin' | 'zona_4'
+
 interface MatchRow {
   dbId: string | null
   tempId: string
   zone_id: string
-  pair1_id: string
-  pair2_id: string
-  day: string       // ahora es fecha ISO "YYYY-MM-DD"
+  pair1_id: string | null   // null en R2-W / R2-L hasta que termine R1
+  pair2_id: string | null
+  round: 'groups' | 'group_r1' | 'group_r2'
+  match_order: number | null
+  winner_goes_to_match: number | null
+  winner_goes_to_slot: number | null
+  loser_goes_to_match: number | null
+  loser_goes_to_slot: number | null
+  day: string
   time: string
   court: string
   dirty: boolean
+  label?: string  // ej: "R1-A", "R2-Ganadores"
 }
 
 interface Props {
   tournamentId: string
   zones: Zone[]
   pairs: Pair[]
-  zonePairs: Record<string, string[]>
+  zonePairs: Record<string, string[]>   // pair_ids ordenados por order_num
   courtsCount: number
   onDone: () => void
 }
@@ -36,20 +45,54 @@ function minutesToTime(mins: number) {
 }
 function cleanTime(t: string | null) {
   if (!t) return ''
-  return t.slice(0,5)
+  return t.slice(0, 5)
 }
-// Muestra "Vie 04 Abr" a partir de "2025-04-04"
 function displayDate(iso: string) {
   if (!iso) return '—'
   const d = new Date(iso + 'T00:00:00')
   return d.toLocaleDateString('es-AR', { weekday: 'short', day: '2-digit', month: 'short' })
 }
-function roundRobinPairs(pairIds: string[]): [string,string][] {
-  const result: [string,string][] = []
+function roundRobinPairs(pairIds: string[]): [string, string][] {
+  const result: [string, string][] = []
   for (let i = 0; i < pairIds.length; i++)
     for (let j = i + 1; j < pairIds.length; j++)
       result.push([pairIds[i], pairIds[j]])
   return result
+}
+
+// Genera las 4 filas del formato zona-4 para una zona con 4 parejas
+function zona4Rows(zoneId: string, pairIds: string[]): Omit<MatchRow, 'tempId' | 'dbId' | 'day' | 'time' | 'court' | 'dirty'>[] {
+  if (pairIds.length !== 4) return []
+  return [
+    {
+      zone_id: zoneId, round: 'group_r1', match_order: 1,
+      pair1_id: pairIds[0], pair2_id: pairIds[1],
+      winner_goes_to_match: 3, winner_goes_to_slot: 1,
+      loser_goes_to_match: 4, loser_goes_to_slot: 1,
+      label: 'R1 · #1 vs #2',
+    },
+    {
+      zone_id: zoneId, round: 'group_r1', match_order: 2,
+      pair1_id: pairIds[2], pair2_id: pairIds[3],
+      winner_goes_to_match: 3, winner_goes_to_slot: 2,
+      loser_goes_to_match: 4, loser_goes_to_slot: 2,
+      label: 'R1 · #3 vs #4',
+    },
+    {
+      zone_id: zoneId, round: 'group_r2', match_order: 3,
+      pair1_id: null, pair2_id: null,
+      winner_goes_to_match: null, winner_goes_to_slot: null,
+      loser_goes_to_match: null, loser_goes_to_slot: null,
+      label: 'R2 · Ganadores',
+    },
+    {
+      zone_id: zoneId, round: 'group_r2', match_order: 4,
+      pair1_id: null, pair2_id: null,
+      winner_goes_to_match: null, winner_goes_to_slot: null,
+      loser_goes_to_match: null, loser_goes_to_slot: null,
+      label: 'R2 · Perdedores',
+    },
+  ]
 }
 
 function DeleteButton({ onConfirm, isDeleting }: { onConfirm: () => void; isDeleting: boolean }) {
@@ -117,13 +160,17 @@ function ZoneQuickFill({ courtsCount, onApply }: {
 
 export default function FixtureBuilder({ tournamentId, zones, pairs, zonePairs, courtsCount, onDone }: Props) {
   const [rows, setRows] = useState<MatchRow[]>([])
+  const [zoneFormat, setZoneFormat] = useState<Record<string, ZoneFormat>>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [fb, setFb] = useState('')
   const [activeZone, setActiveZone] = useState(zones[0]?.id ?? '')
 
-  function getPairName(id: string) { return pairs.find(p => p.id === id)?.display_name ?? '—' }
+  function getPairName(id: string | null) {
+    if (!id) return 'Por definir'
+    return pairs.find(p => p.id === id)?.display_name ?? '—'
+  }
   function showFb(msg: string) { setFb(msg); setTimeout(() => setFb(''), 3000) }
 
   useEffect(() => { if (tournamentId) loadMatches() }, [tournamentId, JSON.stringify(zonePairs)])
@@ -131,32 +178,121 @@ export default function FixtureBuilder({ tournamentId, zones, pairs, zonePairs, 
   async function loadMatches() {
     setLoading(true)
     const { data: saved } = await supabase
-      .from('matches').select('id,zone_id,pair1_id,pair2_id,day,scheduled_time,court,status')
-      .eq('tournament_id', tournamentId).eq('round', 'groups')
+      .from('matches').select('id, zone_id, pair1_id, pair2_id, day, scheduled_time, court, status, round, match_order, winner_goes_to_match, winner_goes_to_slot, loser_goes_to_match, loser_goes_to_slot')
+      .eq('tournament_id', tournamentId)
+      .in('round', ['groups', 'group_r1', 'group_r2'])
 
-    const existingPairs = new Set((saved ?? []).map(m => `${m.zone_id}-${m.pair1_id}-${m.pair2_id}`))
+    // Detectar formato por zona desde los partidos guardados
+    const detected: Record<string, ZoneFormat> = {}
+    zones.forEach(z => {
+      const zoneSaved = (saved ?? []).filter(m => m.zone_id === z.id)
+      if (zoneSaved.some(m => m.round === 'group_r1' || m.round === 'group_r2')) {
+        detected[z.id] = 'zona_4'
+      } else if ((zonePairs[z.id] ?? []).length === 4) {
+        // Default sugerido: si la zona tiene 4 parejas, sugerir zona-4
+        detected[z.id] = zoneFormat[z.id] ?? 'round_robin'
+      } else {
+        detected[z.id] = 'round_robin'
+      }
+    })
+    setZoneFormat(prev => ({ ...detected, ...prev }))
 
+    // Mapear partidos guardados a filas
     const dbRows: MatchRow[] = (saved ?? []).map(m => ({
       dbId: m.id, tempId: m.id, zone_id: m.zone_id,
       pair1_id: m.pair1_id, pair2_id: m.pair2_id,
+      round: m.round as MatchRow['round'],
+      match_order: m.match_order,
+      winner_goes_to_match: m.winner_goes_to_match ?? null,
+      winner_goes_to_slot: m.winner_goes_to_slot ?? null,
+      loser_goes_to_match: m.loser_goes_to_match ?? null,
+      loser_goes_to_slot: m.loser_goes_to_slot ?? null,
       day: m.day ?? '', time: cleanTime(m.scheduled_time), court: m.court ?? '', dirty: false,
+      label: m.round === 'group_r1' ? `R1 · ${m.match_order === 1 ? '#1 vs #2' : '#3 vs #4'}`
+           : m.round === 'group_r2' ? `R2 · ${m.match_order === 3 ? 'Ganadores' : 'Perdedores'}`
+           : undefined,
     }))
 
+    // Generar filas nuevas (las que faltan en DB)
     const newRows: MatchRow[] = []
     let counter = 0
     zones.forEach(zone => {
       const pIds = zonePairs[zone.id] ?? []
-      roundRobinPairs(pIds).forEach(([p1, p2]) => {
-        const k1 = `${zone.id}-${p1}-${p2}`
-        const k2 = `${zone.id}-${p2}-${p1}`
-        if (!existingPairs.has(k1) && !existingPairs.has(k2)) {
-          newRows.push({ dbId: null, tempId: `new-${zone.id}-${counter++}`, zone_id: zone.id, pair1_id: p1, pair2_id: p2, day: '', time: '', court: '', dirty: false })
-        }
-      })
+      const fmt = detected[zone.id]
+      const zoneSaved = dbRows.filter(r => r.zone_id === zone.id)
+
+      if (fmt === 'zona_4' && pIds.length === 4) {
+        const templates = zona4Rows(zone.id, pIds)
+        templates.forEach(t => {
+          // Existe ya un match con este round + match_order en la zona?
+          const exists = zoneSaved.some(r => r.round === t.round && r.match_order === t.match_order)
+          if (!exists) {
+            newRows.push({
+              ...t,
+              dbId: null, tempId: `new-${zone.id}-${counter++}`,
+              day: '', time: '', court: '', dirty: false,
+            })
+          }
+        })
+      } else {
+        // round-robin: solo si no existe ya el cruce
+        const existingPairs = new Set(zoneSaved.map(r => `${r.zone_id}-${r.pair1_id}-${r.pair2_id}`))
+        roundRobinPairs(pIds).forEach(([p1, p2]) => {
+          const k1 = `${zone.id}-${p1}-${p2}`
+          const k2 = `${zone.id}-${p2}-${p1}`
+          if (!existingPairs.has(k1) && !existingPairs.has(k2)) {
+            newRows.push({
+              dbId: null, tempId: `new-${zone.id}-${counter++}`, zone_id: zone.id,
+              pair1_id: p1, pair2_id: p2,
+              round: 'groups', match_order: null,
+              winner_goes_to_match: null, winner_goes_to_slot: null,
+              loser_goes_to_match: null, loser_goes_to_slot: null,
+              day: '', time: '', court: '', dirty: false,
+            })
+          }
+        })
+      }
     })
 
     setRows([...dbRows, ...newRows])
     setLoading(false)
+  }
+
+  function changeZoneFormat(zoneId: string, newFmt: ZoneFormat) {
+    const zoneSaved = rows.some(r => r.zone_id === zoneId && r.dbId)
+    if (zoneSaved) {
+      showFb('⚠ La zona ya tiene partidos guardados. Borralos primero para cambiar el formato.')
+      return
+    }
+    setZoneFormat(prev => ({ ...prev, [zoneId]: newFmt }))
+    // Regenerar filas locales para esa zona
+    const pIds = zonePairs[zoneId] ?? []
+    setRows(prev => {
+      const others = prev.filter(r => r.zone_id !== zoneId)
+      const fresh: MatchRow[] = []
+      let counter = 0
+      if (newFmt === 'zona_4' && pIds.length === 4) {
+        zona4Rows(zoneId, pIds).forEach(t => {
+          fresh.push({
+            ...t,
+            dbId: null, tempId: `new-${zoneId}-${counter++}`,
+            day: '', time: '', court: '', dirty: false,
+          })
+        })
+      } else {
+        roundRobinPairs(pIds).forEach(([p1, p2]) => {
+          fresh.push({
+            dbId: null, tempId: `new-${zoneId}-${counter++}`, zone_id: zoneId,
+            pair1_id: p1, pair2_id: p2,
+            round: 'groups', match_order: null,
+            winner_goes_to_match: null, winner_goes_to_slot: null,
+            loser_goes_to_match: null, loser_goes_to_slot: null,
+            day: '', time: '', court: '', dirty: false,
+          })
+        })
+      }
+      return [...others, ...fresh]
+    })
   }
 
   function updateRow(tempId: string, field: 'day'|'time'|'court', value: string) {
@@ -193,8 +329,13 @@ export default function FixtureBuilder({ tournamentId, zones, pairs, zonePairs, 
       setRows(prev => prev.map(r => r.tempId === tempId ? { ...r, dirty: false } : r))
     } else {
       const { data, error } = await supabase.from('matches').insert({
-        tournament_id: tournamentId, zone_id: row.zone_id, round: 'groups',
+        tournament_id: tournamentId, zone_id: row.zone_id, round: row.round,
+        match_order: row.match_order,
         pair1_id: row.pair1_id, pair2_id: row.pair2_id,
+        winner_goes_to_match: row.winner_goes_to_match,
+        winner_goes_to_slot: row.winner_goes_to_slot,
+        loser_goes_to_match: row.loser_goes_to_match,
+        loser_goes_to_slot: row.loser_goes_to_slot,
         day: row.day, scheduled_time: row.time + ':00', court: row.court, status: 'upcoming',
       }).select('id').single()
       if (error || !data) { showFb('❌ ' + error?.message); setSaving(null); return }
@@ -266,8 +407,51 @@ export default function FixtureBuilder({ tournamentId, zones, pairs, zonePairs, 
         const zRows = rows.filter(r => r.zone_id === zone.id)
         const allZDone = zRows.length > 0 && zRows.every(r => r.dbId && !r.dirty)
         const hasPending = zRows.some(r => !r.dbId || r.dirty)
+        const fmt = zoneFormat[zone.id] ?? 'round_robin'
+        const zonePairsCount = (zonePairs[zone.id] ?? []).length
+        const canUseZona4 = zonePairsCount === 4
+        const hasSavedMatches = zRows.some(r => r.dbId)
+
         return (
           <div key={zone.id}>
+            {/* Toggle de formato */}
+            <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-4">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-bold tracking-widest text-gray-600 uppercase">Formato Zona {zone.name}</span>
+                <span className="text-xs text-gray-500">{zonePairsCount} pareja{zonePairsCount !== 1 ? 's' : ''}</span>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => changeZoneFormat(zone.id, 'round_robin')}
+                  disabled={hasSavedMatches && fmt !== 'round_robin'}
+                  className={`flex-1 py-2 px-3 rounded-lg border text-xs font-bold transition-all ${
+                    fmt === 'round_robin'
+                      ? 'bg-green-600 text-white border-green-600'
+                      : 'bg-white text-gray-600 border-gray-200 hover:text-gray-900 disabled:opacity-30 disabled:cursor-not-allowed'
+                  }`}
+                  title="Todos contra todos"
+                >
+                  Round-robin
+                </button>
+                <button
+                  onClick={() => changeZoneFormat(zone.id, 'zona_4')}
+                  disabled={!canUseZona4 || (hasSavedMatches && fmt !== 'zona_4')}
+                  className={`flex-1 py-2 px-3 rounded-lg border text-xs font-bold transition-all ${
+                    fmt === 'zona_4'
+                      ? 'bg-green-600 text-white border-green-600'
+                      : 'bg-white text-gray-600 border-gray-200 hover:text-gray-900 disabled:opacity-30 disabled:cursor-not-allowed'
+                  }`}
+                  title="1vs2, 3vs4 → ganadores y perdedores"
+                >
+                  Zona 4 {!canUseZona4 && '(necesita 4 parejas)'}
+                </button>
+              </div>
+              {hasSavedMatches && (
+                <p className="text-[10px] text-amber-500 mt-2">⚠ Para cambiar de formato, eliminá los partidos guardados primero.</p>
+              )}
+            </div>
+
+            {/* Quick fill */}
             <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-4">
               <div className="text-xs font-bold tracking-widest text-gray-600 uppercase mb-3">Aplicar a toda la Zona {zone.name}</div>
               <ZoneQuickFill courtsCount={courtsCount} onApply={(d,t,i,c) => applyToZone(zone.id,d,t,i,c)} />
@@ -281,6 +465,7 @@ export default function FixtureBuilder({ tournamentId, zones, pairs, zonePairs, 
                   const isSaved = !!row.dbId && !row.dirty
                   const isDirty = row.dirty && !!row.dbId
                   const isNew = !row.dbId
+                  const isR2 = row.round === 'group_r2'
                   return (
                     <div key={row.tempId} className={`rounded-xl border overflow-hidden transition-all ${
                       isSaved ? 'border-green-600/25 bg-green-600/[0.02]'
@@ -289,8 +474,18 @@ export default function FixtureBuilder({ tournamentId, zones, pairs, zonePairs, 
                     }`}>
                       <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200">
                         <span className="text-xs font-bold text-gray-600 w-5 flex-shrink-0">#{idx+1}</span>
+                        {row.label && (
+                          <span className={`text-[10px] font-bold tracking-widest uppercase px-1.5 py-0.5 rounded flex-shrink-0 ${
+                            isR2 ? 'bg-purple-500/10 text-purple-600 border border-purple-500/20'
+                                 : 'bg-blue-500/10 text-blue-600 border border-blue-500/20'
+                          }`}>
+                            {row.label}
+                          </span>
+                        )}
                         <span className="flex-1 text-sm font-semibold truncate">
-                          {getPairName(row.pair1_id)}<span className="text-gray-600 font-normal mx-2">vs</span>{getPairName(row.pair2_id)}
+                          <span className={!row.pair1_id ? 'text-gray-400 italic' : ''}>{getPairName(row.pair1_id)}</span>
+                          <span className="text-gray-600 font-normal mx-2">vs</span>
+                          <span className={!row.pair2_id ? 'text-gray-400 italic' : ''}>{getPairName(row.pair2_id)}</span>
                         </span>
                         <div className="flex items-center gap-2 flex-shrink-0">
                           {isSaved && <span className="text-[10px] font-bold text-green-600">✓ GUARDADO</span>}

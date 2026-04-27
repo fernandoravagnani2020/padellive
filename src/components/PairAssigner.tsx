@@ -11,45 +11,127 @@ interface Props {
   onDone: () => void
 }
 
+interface Assignment {
+  zone_id: string   // '' si sin zona
+  order_num: number // 0 si no asignado
+}
+
+const MAX_PAIRS_PER_ZONE = 8   // límite superior del selector de # pareja
+
 export default function PairAssigner({ tournamentId, zones, pairs, onDone }: Props) {
-  // Map: pair_id → zone_id
-  const [assignments, setAssignments] = useState<Record<string, string>>(() => {
-    const init: Record<string, string> = {}
-    pairs.forEach(p => { init[p.id] = '' })
+  // Map: pair_id → { zone_id, order_num }
+  const [assignments, setAssignments] = useState<Record<string, Assignment>>(() => {
+    const init: Record<string, Assignment> = {}
+    pairs.forEach(p => { init[p.id] = { zone_id: '', order_num: 0 } })
     return init
   })
   const [fb, setFb] = useState('')
   const [saving, setSaving] = useState(false)
 
-  function assign(pairId: string, zoneId: string) {
-    setAssignments(prev => ({ ...prev, [pairId]: zoneId }))
+  // Cantidad de parejas asignadas a una zona
+  function zoneCount(zoneId: string): number {
+    return Object.values(assignments).filter(a => a.zone_id === zoneId).length
   }
 
-  function assignAll(zoneId: string) {
-    // Asigna todas las sin zona a esta zona
+  // Devuelve el siguiente número libre dentro de la zona
+  function nextOrderNum(zoneId: string, ignorePairId?: string): number {
+    const used = new Set<number>()
+    Object.entries(assignments).forEach(([pid, a]) => {
+      if (pid === ignorePairId) return
+      if (a.zone_id === zoneId && a.order_num > 0) used.add(a.order_num)
+    })
+    for (let i = 1; i <= MAX_PAIRS_PER_ZONE; i++) {
+      if (!used.has(i)) return i
+    }
+    return 0
+  }
+
+  function assignZone(pairId: string, zoneId: string) {
     setAssignments(prev => {
       const next = { ...prev }
-      pairs.forEach(p => { if (!next[p.id]) next[p.id] = zoneId })
+      if (!zoneId) {
+        next[pairId] = { zone_id: '', order_num: 0 }
+      } else {
+        next[pairId] = { zone_id: zoneId, order_num: nextOrderNum(zoneId, pairId) }
+      }
       return next
     })
   }
 
-  const unassigned = pairs.filter(p => !assignments[p.id])
-  const assigned = pairs.filter(p => !!assignments[p.id])
+  function assignOrder(pairId: string, orderNum: number) {
+    setAssignments(prev => {
+      const next = { ...prev }
+      const cur = next[pairId]
+      if (!cur.zone_id) return prev
+      // Si otro pair tenía ese order_num en la misma zona, swap
+      const conflict = Object.entries(prev).find(([pid, a]) =>
+        pid !== pairId && a.zone_id === cur.zone_id && a.order_num === orderNum
+      )
+      if (conflict) {
+        next[conflict[0]] = { ...conflict[1], order_num: cur.order_num || nextOrderNum(cur.zone_id, conflict[0]) }
+      }
+      next[pairId] = { ...cur, order_num: orderNum }
+      return next
+    })
+  }
+
+  function assignAll(zoneId: string) {
+    setAssignments(prev => {
+      const next = { ...prev }
+      pairs.forEach(p => {
+        if (!next[p.id].zone_id) {
+          next[p.id] = { zone_id: zoneId, order_num: 0 }
+        }
+      })
+      Object.entries(next).forEach(([pid, a]) => {
+        if (a.zone_id === zoneId && a.order_num === 0) {
+          next[pid] = { ...a, order_num: nextOrderNum(zoneId, pid) }
+        }
+      })
+      return next
+    })
+  }
+
+  const unassigned = pairs.filter(p => !assignments[p.id].zone_id)
+  const assigned = pairs.filter(p => !!assignments[p.id].zone_id)
+
+  // Validar: cada zona debe tener posiciones consecutivas 1..N (sin huecos ni duplicados)
+  const errors: string[] = []
+  zones.forEach(z => {
+    const zPairs = pairs.filter(p => assignments[p.id].zone_id === z.id)
+    if (zPairs.length === 0) return
+    const orders = zPairs.map(p => assignments[p.id].order_num).sort((a, b) => a - b)
+    if (orders.some(o => o === 0)) {
+      errors.push(`Zona ${z.name}: hay parejas sin número`)
+      return
+    }
+    for (let i = 0; i < orders.length; i++) {
+      if (orders[i] !== i + 1) {
+        errors.push(`Zona ${z.name}: las posiciones deben ser 1..${orders.length} sin huecos (faltan o sobran números)`)
+        return
+      }
+    }
+  })
 
   async function handleSave() {
     if (unassigned.length > 0) {
       setFb(`⚠ Faltan asignar ${unassigned.length} pareja${unassigned.length > 1 ? 's' : ''}.`)
       return
     }
+    if (errors.length) {
+      setFb(`⚠ ${errors[0]}`)
+      return
+    }
     setSaving(true)
 
-    // Insertar zone_pairs
-    const zonePairRows = Object.entries(assignments).map(([pair_id, zone_id]) => ({ zone_id, pair_id }))
+    const zonePairRows = Object.entries(assignments).map(([pair_id, a]) => ({
+      zone_id: a.zone_id,
+      pair_id,
+      order_num: a.order_num,
+    }))
     const { error: zpError } = await supabase.from('zone_pairs').insert(zonePairRows)
     if (zpError) { setFb('❌ ' + zpError.message); setSaving(false); return }
 
-    // Inicializar standings en 0
     const standingRows = zonePairRows.map(({ zone_id, pair_id }) => ({
       zone_id, pair_id,
       played: 0, won: 0, sets_won: 0, sets_lost: 0,
@@ -63,10 +145,12 @@ export default function PairAssigner({ tournamentId, zones, pairs, onDone }: Pro
     setTimeout(onDone, 1000)
   }
 
-  // Grupos por zona para preview
+  // Preview ordenado por order_num
   const byZone = zones.map(z => ({
     zone: z,
-    pairs: pairs.filter(p => assignments[p.id] === z.id),
+    pairs: pairs
+      .filter(p => assignments[p.id].zone_id === z.id)
+      .sort((a, b) => assignments[a.id].order_num - assignments[b.id].order_num),
   }))
 
   return (
@@ -76,12 +160,11 @@ export default function PairAssigner({ tournamentId, zones, pairs, onDone }: Pro
         <span className="text-sm text-gray-600">
           <span className="text-white font-bold">{assigned.length}</span> / {pairs.length} asignadas
         </span>
-        {unassigned.length === 0 && (
+        {unassigned.length === 0 && errors.length === 0 && (
           <span className="text-green-600 text-sm font-bold">✓ Todas asignadas</span>
         )}
       </div>
 
-      {/* Barra de progreso */}
       <div className="h-1.5 bg-white/[0.06] rounded-full mb-6 overflow-hidden">
         <div
           className="h-full bg-green-600 rounded-full transition-all duration-300"
@@ -89,53 +172,73 @@ export default function PairAssigner({ tournamentId, zones, pairs, onDone }: Pro
         />
       </div>
 
-      {/* Layout: lista de parejas + zonas */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-
-        {/* Columna izquierda: parejas con selector de zona */}
+        {/* Lista de parejas con selector de zona + número */}
         <div>
           <div className="text-xs font-bold tracking-widest text-gray-600 uppercase mb-3">
             Parejas ({pairs.length})
           </div>
           <div className="space-y-2 max-h-[520px] overflow-y-auto pr-1">
-            {pairs.map(p => (
-              <div key={p.id} className={`flex items-center gap-3 rounded-xl px-4 py-3 border transition-all ${
-                assignments[p.id]
-                  ? 'bg-white border-gray-200'
-                  : 'bg-gray-50 border-amber-400/20'
-              }`}>
-                {/* Indicador de zona asignada */}
-                <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-['Barlow_Condensed'] text-base font-extrabold flex-shrink-0 transition-all ${
-                  assignments[p.id]
-                    ? 'bg-green-600 text-black'
-                    : 'bg-white/[0.06] text-gray-600'
+            {pairs.map(p => {
+              const a = assignments[p.id]
+              const hasZone = !!a.zone_id
+              const zoneSize = hasZone ? zoneCount(a.zone_id) : 0
+              // Mostrar 1..(zoneSize) — la pareja actual cuenta, así que el rango incluye su lugar
+              const positionMax = Math.max(zoneSize, 1)
+              return (
+                <div key={p.id} className={`flex items-center gap-2 rounded-xl px-3 py-3 border transition-all ${
+                  hasZone ? 'bg-white border-gray-200' : 'bg-gray-50 border-amber-400/20'
                 }`}>
-                  {assignments[p.id]
-                    ? zones.find(z => z.id === assignments[p.id])?.name ?? '?'
-                    : '?'
-                  }
+                  {/* Indicador zona + número */}
+                  <div className={`flex items-center gap-1 flex-shrink-0`}>
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-['Barlow_Condensed'] text-base font-extrabold transition-all ${
+                      hasZone ? 'bg-green-600 text-black' : 'bg-white/[0.06] text-gray-600'
+                    }`}>
+                      {hasZone ? zones.find(z => z.id === a.zone_id)?.name ?? '?' : '?'}
+                    </div>
+                    {hasZone && a.order_num > 0 && (
+                      <div className="w-6 h-7 rounded-lg bg-green-600/15 border border-green-600/30 flex items-center justify-center font-bold text-xs text-green-600">
+                        #{a.order_num}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Nombre */}
+                  <span className="flex-1 text-sm font-semibold truncate">{p.display_name}</span>
+
+                  {/* Selector zona */}
+                  <select
+                    value={a.zone_id}
+                    onChange={e => assignZone(p.id, e.target.value)}
+                    className="bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-gray-900 text-xs outline-none focus:border-green-600 transition-colors cursor-pointer"
+                    title="Zona"
+                  >
+                    <option value="">Sin zona</option>
+                    {zones.map(z => (
+                      <option key={z.id} value={z.id}>Zona {z.name}</option>
+                    ))}
+                  </select>
+
+                  {/* Selector número de pareja */}
+                  <select
+                    value={a.order_num || ''}
+                    onChange={e => assignOrder(p.id, +e.target.value)}
+                    disabled={!hasZone}
+                    className="bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-gray-900 text-xs outline-none focus:border-green-600 transition-colors cursor-pointer disabled:opacity-40 w-14"
+                    title="Número de pareja en la zona"
+                  >
+                    <option value="">—</option>
+                    {Array.from({ length: positionMax }, (_, i) => i + 1).map(n => (
+                      <option key={n} value={n}>#{n}</option>
+                    ))}
+                  </select>
                 </div>
-
-                {/* Nombre */}
-                <span className="flex-1 text-sm font-semibold">{p.display_name}</span>
-
-                {/* Selector */}
-                <select
-                  value={assignments[p.id] || ''}
-                  onChange={e => assign(p.id, e.target.value)}
-                  className="bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-gray-900 text-xs outline-none focus:border-green-600 transition-colors cursor-pointer"
-                >
-                  <option value="">Sin zona</option>
-                  {zones.map(z => (
-                    <option key={z.id} value={z.id}>Zona {z.name}</option>
-                  ))}
-                </select>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
 
-        {/* Columna derecha: preview por zona */}
+        {/* Preview por zona — muestra solo los slots que están ocupados */}
         <div>
           <div className="text-xs font-bold tracking-widest text-gray-600 uppercase mb-3">
             Preview por zona
@@ -148,16 +251,20 @@ export default function PairAssigner({ tournamentId, zones, pairs, onDone }: Pro
                     {zone.name}
                   </div>
                   <span className="font-bold text-sm">Zona {zone.name}</span>
-                  <span className="ml-auto text-xs text-gray-600">{zPairs.length} pareja{zPairs.length !== 1 ? 's' : ''}</span>
+                  <span className="ml-auto text-xs text-gray-600">
+                    {zPairs.length} pareja{zPairs.length !== 1 ? 's' : ''}
+                  </span>
                 </div>
                 {zPairs.length === 0 ? (
                   <div className="px-4 py-3 text-xs text-gray-600 italic">Sin parejas asignadas</div>
                 ) : (
-                  <div className="divide-y divide-white/[0.04]">
+                  <div className="divide-y divide-gray-100">
                     {zPairs.map(p => (
-                      <div key={p.id} className="px-4 py-2.5 text-sm text-gray-600 flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-green-600/60 flex-shrink-0" />
-                        {p.display_name}
+                      <div key={p.id} className="px-4 py-2.5 text-sm flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-md bg-gray-50 border border-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-500 flex-shrink-0">
+                          #{assignments[p.id].order_num}
+                        </span>
+                        <span className="text-gray-700 font-medium">{p.display_name}</span>
                       </div>
                     ))}
                   </div>
@@ -196,11 +303,20 @@ export default function PairAssigner({ tournamentId, zones, pairs, onDone }: Pro
         </div>
       )}
 
+      {/* Errores */}
+      {errors.length > 0 && (
+        <div className="mt-4 p-3 bg-red-500/[0.06] border border-red-500/20 rounded-xl">
+          {errors.map((e, i) => (
+            <div key={i} className="text-xs text-red-400 font-semibold">⚠ {e}</div>
+          ))}
+        </div>
+      )}
+
       {/* Guardar */}
       <div className="mt-5 flex items-center gap-4">
         <button
           onClick={handleSave}
-          disabled={saving || unassigned.length > 0}
+          disabled={saving || unassigned.length > 0 || errors.length > 0}
           className="flex-1 bg-green-600 text-white font-['Bebas_Neue', sans-serif] text-lg font-bold py-3 rounded-xl hover:bg-green-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {saving ? 'Guardando...' : `Confirmar asignación →`}

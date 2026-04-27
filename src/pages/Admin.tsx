@@ -75,7 +75,7 @@ export default function Admin() {
       supabase.from('zones').select('*').eq('tournament_id', tId).order('order_num'),
       supabase.from('pairs').select('id,display_name').eq('tournament_id', tId),
       supabase.from('matches').select('*').eq('tournament_id', tId).order('scheduled_time'),
-      supabase.from('zone_pairs').select('zone_id,pair_id'),
+      supabase.from('zone_pairs').select('zone_id,pair_id,order_num').order('order_num', { ascending: true, nullsFirst: false }),
     ])
     if (z) {
       setZones(z)
@@ -116,7 +116,7 @@ export default function Admin() {
   // ── PASO 1: Crear torneo ──────────────────────────────
   const [cf, setCf] = useState({
     name: '', category: 'Quinta', gender: 'male',
-    pairs_count: 12, pairs_per_zone: 3, courts_count: 4,
+    pairs_count: 12, zones_count: 4, courts_count: 4,
     start_date: '', prize_first: '', prize_second: '', prize_third: '', prize_first_desc: '', prize_second_desc: '', prize_third_desc: '', rules: '',
   })
   const [fb1, setFb1] = useState('')
@@ -126,7 +126,7 @@ export default function Admin() {
     const { data: clubs } = await supabase.from('clubs').select('id').limit(1)
     if (!clubs?.length) { setFb1('⚠ No hay clubs cargados.'); return }
 
-    const zonesCount = Math.ceil(cf.pairs_count / cf.pairs_per_zone)
+    const zonesCount = cf.zones_count
     const zoneNames = Array.from({ length: zonesCount }, (_, i) => String.fromCharCode(65 + i))
 
     const { data: t, error } = await supabase.from('tournaments').insert({
@@ -281,7 +281,10 @@ export default function Admin() {
     let courtIdx = 0
 
     for (const zone of zns) {
-      const { data: zp } = await supabase.from('zone_pairs').select('pair_id').eq('zone_id', zone.id)
+      const { data: zp } = await supabase.from('zone_pairs')
+        .select('pair_id, order_num')
+        .eq('zone_id', zone.id)
+        .order('order_num', { ascending: true, nullsFirst: false })
       if (!zp?.length) continue
       const pairIds = zp.map(z => z.pair_id)
 
@@ -410,41 +413,54 @@ export default function Admin() {
   const [bracketInterval, setBracketInterval] = useState(90)
   const [bracketCourt, setBracketCourt] = useState('Cancha 1')
 
-  // Calcular clasificados por zona (top N según standings)
-  const classifiedPerZone = 2  // primeros 2 de cada zona pasan
+  // Calcular clasificados por zona — top 3 si la zona es zona-4, top 2 si es round-robin
+  function isZona4Zone(zoneId: string): boolean {
+    return matches.some(m => m.zone_id === zoneId && (m.round === 'group_r1' || m.round === 'group_r2'))
+  }
   const classified = zones.flatMap(zone => {
+    const top = isZona4Zone(zone.id) ? 3 : 2
     return standings
       .filter(s => s.zone_id === zone.id)
       .sort((a, b) => {
+        if (a.position != null && b.position != null) return a.position - b.position
+        if (a.position != null) return -1
+        if (b.position != null) return 1
         if (b.points !== a.points) return b.points - a.points
         if ((b.sets_won - b.sets_lost) !== (a.sets_won - a.sets_lost))
           return (b.sets_won - b.sets_lost) - (a.sets_won - a.sets_lost)
         return (b.games_won - b.games_lost) - (a.games_won - a.games_lost)
       })
-      .slice(0, classifiedPerZone)
+      .slice(0, top)
       .map((s, pos) => ({ zoneId: zone.id, zoneName: zone.name, pairId: s.pair_id, position: pos + 1 }))
   })
+
+  // Genera cruces siguiendo seeding estándar (mejor vs peor) evitando misma zona
+  function buildMatchups(c: typeof classified): { p1: string; p2: string }[] {
+    const remaining = [...c].sort((a, b) => a.position - b.position)
+    const out: { p1: string; p2: string }[] = []
+    while (remaining.length >= 2) {
+      const top = remaining.shift()!
+      // Buscar el peor (último) de distinta zona
+      let oppIdx = -1
+      for (let i = remaining.length - 1; i >= 0; i--) {
+        if (remaining[i].zoneId !== top.zoneId) { oppIdx = i; break }
+      }
+      if (oppIdx < 0) oppIdx = remaining.length - 1
+      const opp = remaining.splice(oppIdx, 1)[0]
+      out.push({ p1: top.pairId, p2: opp.pairId })
+    }
+    return out
+  }
 
   async function handleGenerateBracket() {
     if (!selectedTId) { setFb5c('⚠ Seleccioná un torneo.'); return }
     if (classified.length < 2) { setFb5c('⚠ No hay suficientes clasificados. Completá los resultados de grupos primero.'); return }
     if (!bracketDate) { setFb5c('⚠ Seleccioná una fecha para el cuadro.'); return }
 
-    // Determinar ronda según cantidad de clasificados
     const n = classified.length
-    const round = n <= 2 ? 'final' : n <= 4 ? 'semis' : n <= 8 ? 'quarters' : 'quarters'
+    const round = n <= 2 ? 'final' : n <= 4 ? 'semis' : n <= 8 ? 'quarters' : 'roundof16'
 
-    // Armar cruces: 1°ZonaA vs 2°ZonaB, 1°ZonaB vs 2°ZonaA, etc.
-    const firstPlace = classified.filter(c => c.position === 1)
-    const secondPlace = classified.filter(c => c.position === 2)
-
-    const matchups: { p1: string; p2: string }[] = []
-    firstPlace.forEach((fp, i) => {
-      // Cruzar con segundo de otra zona (siguiente en el array circular)
-      const sp = secondPlace[(i + 1) % secondPlace.length]
-      if (sp) matchups.push({ p1: fp.pairId, p2: sp.pairId })
-    })
-
+    const matchups = buildMatchups(classified)
     if (!matchups.length) { setFb5c('⚠ No se pudieron armar los cruces.'); return }
 
     let timeMin = timeToMinutes(bracketStartTime)
@@ -496,7 +512,7 @@ export default function Admin() {
 
   const pendingMatches = matches.filter(m => m.status !== 'done')
   const doneMatches = matches.filter(m => m.status === 'done')
-  const zonesCount = Math.ceil(cf.pairs_count / cf.pairs_per_zone)
+  const zonesCount = cf.zones_count
   const zonePreview = Array.from({ length: zonesCount }, (_, i) => String.fromCharCode(65 + i))
 
   return (
@@ -627,10 +643,8 @@ export default function Admin() {
                 <Field label="Total de parejas">
                   <input className={inp} type="number" min={2} value={cf.pairs_count} onChange={e => setCf(f => ({ ...f, pairs_count: +e.target.value }))} />
                 </Field>
-                <Field label="Parejas por zona">
-                  <select className={sel} value={cf.pairs_per_zone} onChange={e => setCf(f => ({ ...f, pairs_per_zone: +e.target.value }))}>
-                    {[2,3,4,5,6].map(n => <option key={n} value={n}>{n} por zona</option>)}
-                  </select>
+                <Field label="Cantidad de zonas">
+                  <input className={inp} type="number" min={1} max={26} value={cf.zones_count} onChange={e => setCf(f => ({ ...f, zones_count: +e.target.value }))} />
                 </Field>
                 <Field label="Canchas disponibles">
                   <input className={inp} type="number" min={1} value={cf.courts_count} onChange={e => setCf(f => ({ ...f, courts_count: +e.target.value }))} />
@@ -1272,7 +1286,7 @@ export default function Admin() {
               {classified.length > 0 ? (
                 <div className="mb-5">
                   <div className="text-xs font-bold tracking-widest text-gray-400 uppercase mb-3">
-                    Clasificados ({classified.length}) — {classifiedPerZone} por zona
+                    Clasificados ({classified.length})
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
                     {zones.map(zone => {
@@ -1298,22 +1312,14 @@ export default function Admin() {
                   {/* Preview de cruces */}
                   <div className="text-xs font-bold tracking-widest text-gray-400 uppercase mb-2">Cruces a generar</div>
                   <div className="space-y-1.5 mb-5">
-                    {(() => {
-                      const fp = classified.filter(c => c.position === 1)
-                      const sp = classified.filter(c => c.position === 2)
-                      return fp.map((f, i) => {
-                        const s = sp[(i + 1) % sp.length]
-                        if (!s) return null
-                        return (
-                          <div key={i} className="flex items-center gap-3 bg-gray-50 rounded-lg px-3 py-2 text-sm">
-                            <span className="text-[10px] font-bold text-gray-400 w-4">{i+1}</span>
-                            <span className="flex-1 font-semibold">{getPairName(f.pairId)}</span>
-                            <span className="text-gray-400 text-xs">vs</span>
-                            <span className="flex-1 font-semibold text-right">{getPairName(s.pairId)}</span>
-                          </div>
-                        )
-                      })
-                    })()}
+                    {buildMatchups(classified).map((m, i) => (
+                      <div key={i} className="flex items-center gap-3 bg-gray-50 rounded-lg px-3 py-2 text-sm">
+                        <span className="text-[10px] font-bold text-gray-400 w-4">{i+1}</span>
+                        <span className="flex-1 font-semibold">{getPairName(m.p1)}</span>
+                        <span className="text-gray-400 text-xs">vs</span>
+                        <span className="flex-1 font-semibold text-right">{getPairName(m.p2)}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               ) : (

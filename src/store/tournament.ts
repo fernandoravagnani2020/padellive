@@ -54,6 +54,8 @@ export interface Match {
   score: SetScore[] | null
   winner_goes_to_match?: number | null
   winner_goes_to_slot?: number | null
+  loser_goes_to_match?: number | null
+  loser_goes_to_slot?: number | null
 }
 
 export interface Standing {
@@ -144,6 +146,11 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
     get().standings
       .filter(s => s.zone_id === zoneId)
       .sort((a, b) => {
+        // Si ambas tienen position seteada, usarla (zona-4 con R2 done)
+        if (a.position != null && b.position != null) return a.position - b.position
+        if (a.position != null) return -1
+        if (b.position != null) return 1
+        // Fallback: ranking por puntos
         if (b.points !== a.points) return b.points - a.points
         const diffA = a.sets_won - a.sets_lost
         const diffB = b.sets_won - b.sets_lost
