@@ -1,0 +1,27 @@
+name: Notificación de turnos del día
+
+on:
+  schedule:
+    - cron: '30 13 * * *'   # 10:30 AM Argentina (UTC-3 → 13:30 UTC)
+  workflow_dispatch:         # botón manual desde GitHub
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependencias
+        run: pip install requests
+
+      - name: Enviar notificación
+        env:
+          SUPABASE_URL:      ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: python3 notify_slots.py
