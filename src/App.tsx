@@ -9,6 +9,7 @@ import Home from './pages/Home'
 import LeaguePublic from './pages/LeaguePublic'
 import LeagueAdmin from './pages/LeagueAdmin'
 import SlotsData from './pages/SlotsData'
+import PushPrompt from './components/PushPrompt'
 
 // ── Hook responsive ───────────────────────────────────────
 function useIsMobile() {
@@ -209,6 +210,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <div style={{ minHeight:'100vh' }}>
+        <PushPrompt />
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/slots" element={<SlotsData />} />

@@ -4,6 +4,7 @@ import PairAssigner from '../components/PairAssigner'
 import PairsManager from '../components/PairsManager'
 import FixtureBuilder from '../components/FixtureBuilder'
 import BracketManager from '../components/BracketManager'
+import { sendMatchPush } from '../lib/push'
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -391,6 +392,21 @@ export default function Admin() {
     if (error) setFb4('❌ ' + error.message)
     else {
       setFb4(editingMatch ? '✓ Resultado actualizado.' : '✓ Resultado guardado.')
+
+      // Notificación push (solo en partidos nuevos, no en ediciones)
+      if (!editingMatch) {
+        const tName  = tournaments.find(t => t.id === selectedTId)?.name ?? 'Torneo'
+        const winnerName = winnerId === match.pair1_id ? getPairName(match.pair1_id) : getPairName(match.pair2_id)
+        const loserName  = winnerId === match.pair1_id ? getPairName(match.pair2_id) : getPairName(match.pair1_id)
+        const scoreStr   = sets.map(s => `${s.p1}/${s.p2}`).join(' ')
+        sendMatchPush({
+          title: `🎾 ${tName}`,
+          body:  `${winnerName} venció a ${loserName} · ${scoreStr}`,
+          url:   `/torneo/${selectedTId}`,
+          tag:   `match-${selMatch}`,
+        }).catch(() => {})
+      }
+
       setEditingMatch('')
       setSelMatch('')
       setScoreInput('6/3 6/4')

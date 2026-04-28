@@ -2,6 +2,7 @@ import React from 'react'
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import type { League, Team, Round, LeagueMatch, Standing, SetScore } from '../store/league-types'
+import { sendMatchPush } from '../lib/push'
 
 const inp: React.CSSProperties = { width:'100%', background:'#f9fafb', border:'1px solid #e5e7eb', borderRadius:8, padding:'8px 12px', fontSize:13, color:'#111', outline:'none', fontFamily:'inherit' }
 const btn = (color = '#111'): React.CSSProperties => ({ background:color, color:'#fff', border:'none', borderRadius:8, padding:'10px 18px', fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'inherit' })
@@ -346,6 +347,22 @@ function ResultsSection({ leagueId, teams }: { leagueId: string; teams: Team[] }
 
     // Recalcular standings
     await supabase.rpc('recalc_standings', { p_league_id: leagueId })
+
+    // Notificación push (sólo si no era una edición — chequeamos el status previo)
+    if (m.status !== 'done') {
+      const home = teams.find(t => t.id === m.home_team_id)?.name ?? 'Local'
+      const away = teams.find(t => t.id === m.away_team_id)?.name ?? 'Visitante'
+      const winName = winner === 'home' ? home : away
+      const losName = winner === 'home' ? away : home
+      const scoreStr = sets.map(s => `${s.home}/${s.away}`).join(' ')
+      sendMatchPush({
+        title: `🏆 Liga`,
+        body:  `${winName} venció a ${losName} · ${scoreStr}`,
+        url:   `/`,
+        tag:   `league-${m.id}`,
+      }).catch(() => {})
+    }
+
     showFb(setFb,'✓ Resultado guardado.')
     setOpen(null)
     load()
