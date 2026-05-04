@@ -68,6 +68,9 @@ function TeamsSection({ leagueId }: { leagueId: string }) {
   const [teams, setTeams] = useState<Team[]>([])
   const [names, setNames] = useState('')
   const [fb, setFb] = useState('')
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editValue, setEditValue] = useState('')
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   async function load() {
     const { data } = await supabase.from('teams').select('*').eq('league_id', leagueId).order('order_num')
@@ -95,6 +98,28 @@ function TeamsSection({ leagueId }: { leagueId: string }) {
 
   async function deleteTeam(id: string) {
     await supabase.from('teams').delete().eq('id', id)
+    setConfirmDeleteId(null)
+    load()
+  }
+
+  function startEdit(t: Team) {
+    setEditingId(t.id)
+    setEditValue(t.name)
+  }
+
+  function cancelEdit() {
+    setEditingId(null)
+    setEditValue('')
+  }
+
+  async function saveEdit() {
+    if (!editingId) return
+    const trimmed = editValue.trim()
+    if (!trimmed) { showFb(setFb,'⚠ El nombre no puede estar vacío.'); return }
+    const { error } = await supabase.from('teams').update({ name: trimmed }).eq('id', editingId)
+    if (error) { showFb(setFb,'❌ '+error.message); return }
+    showFb(setFb,'✓ Nombre actualizado.')
+    cancelEdit()
     load()
   }
 
@@ -102,13 +127,40 @@ function TeamsSection({ leagueId }: { leagueId: string }) {
     <div>
       <h3 style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:20, marginBottom:16, letterSpacing:'0.03em' }}>Equipos</h3>
       <div style={{ display:'flex', flexDirection:'column', gap:6, marginBottom:16 }}>
-        {teams.map((t,i) => (
-          <div key={t.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 14px', background:'#fff', border:'1px solid rgba(0,0,0,0.08)', borderRadius:8 }}>
-            <span style={{ fontSize:11, color:'#bbb', width:20 }}>{i+1}</span>
-            <span style={{ flex:1, fontWeight:500, fontSize:14 }}>{t.name}</span>
-            <button onClick={() => deleteTeam(t.id)} style={{ background:'none', border:'none', color:'#dc2626', cursor:'pointer', fontSize:13, padding:'2px 6px' }}>✕</button>
-          </div>
-        ))}
+        {teams.map((t,i) => {
+          const isEditing = editingId === t.id
+          const isConfirming = confirmDeleteId === t.id
+          return (
+            <div key={t.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 14px', background:'#fff', border:'1px solid rgba(0,0,0,0.08)', borderRadius:8 }}>
+              <span style={{ fontSize:11, color:'#bbb', width:20 }}>{i+1}</span>
+              {isEditing ? (
+                <>
+                  <input
+                    autoFocus
+                    value={editValue}
+                    onChange={e=>setEditValue(e.target.value)}
+                    onKeyDown={e=>{ if(e.key==='Enter') saveEdit(); if(e.key==='Escape') cancelEdit() }}
+                    style={{ flex:1, fontWeight:500, fontSize:14, border:'1px solid #16a34a', borderRadius:6, padding:'4px 8px', outline:'none' }}
+                  />
+                  <button onClick={saveEdit} style={{ background:'#16a34a', border:'none', color:'#fff', cursor:'pointer', fontSize:12, fontWeight:600, padding:'5px 10px', borderRadius:6 }}>Guardar</button>
+                  <button onClick={cancelEdit} style={{ background:'none', border:'none', color:'#666', cursor:'pointer', fontSize:12, padding:'5px 8px' }}>Cancelar</button>
+                </>
+              ) : isConfirming ? (
+                <>
+                  <span style={{ flex:1, fontSize:13, color:'#dc2626' }}>¿Eliminar "{t.name}"?</span>
+                  <button onClick={() => deleteTeam(t.id)} style={{ background:'#dc2626', border:'none', color:'#fff', cursor:'pointer', fontSize:12, fontWeight:600, padding:'5px 10px', borderRadius:6 }}>Sí, eliminar</button>
+                  <button onClick={() => setConfirmDeleteId(null)} style={{ background:'none', border:'none', color:'#666', cursor:'pointer', fontSize:12, padding:'5px 8px' }}>Cancelar</button>
+                </>
+              ) : (
+                <>
+                  <span style={{ flex:1, fontWeight:500, fontSize:14 }}>{t.name}</span>
+                  <button onClick={() => startEdit(t)} title="Editar" style={{ background:'none', border:'none', color:'#16a34a', cursor:'pointer', fontSize:12, fontWeight:600, padding:'4px 8px' }}>✎ Editar</button>
+                  <button onClick={() => setConfirmDeleteId(t.id)} title="Eliminar" style={{ background:'none', border:'none', color:'#dc2626', cursor:'pointer', fontSize:13, padding:'2px 6px' }}>✕</button>
+                </>
+              )}
+            </div>
+          )
+        })}
         {!teams.length && <p style={{ fontSize:13, color:'#bbb', textAlign:'center', padding:'20px 0' }}>Sin equipos. Agregá abajo.</p>}
       </div>
 
