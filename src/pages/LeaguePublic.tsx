@@ -2,6 +2,15 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import type { League, Team, Standing, Round, LeagueMatch } from '../store/league-types'
 
+// ── Constantes de playoffs ────────────────────────────────
+const PHASE_ORDER = ['octavos', 'cuartos', 'semis', 'final']
+const PHASE_LABELS: Record<string, string> = {
+  octavos: 'Octavos de Final',
+  cuartos: 'Cuartos de Final',
+  semis: 'Semifinales',
+  final: 'Final',
+}
+
 // ── Helpers ──────────────────────────────────────────────
 function displayDate(d: string | null) {
   if (!d) return ''
@@ -25,8 +34,12 @@ function StandingsTable({ standings, teams }: { standings: Standing[]; teams: Te
     return gdB - gdA
   })
 
+  const totalTeams = sorted.length
+  const octavosCutoff = totalTeams > 4 ? totalTeams - 4 : -1
+
   return (
-    <div style={{ background:'#fff', border:'1px solid rgba(0,0,0,0.08)', borderRadius:14, overflow:'hidden', boxShadow:'0 1px 4px rgba(0,0,0,0.04)' }}>
+    <div>
+      <div style={{ background:'#fff', border:'1px solid rgba(0,0,0,0.08)', borderRadius:14, overflow:'hidden', boxShadow:'0 1px 4px rgba(0,0,0,0.04)' }}>
       <div style={{ overflowX:'auto' }}>
         <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
           <thead>
@@ -41,15 +54,15 @@ function StandingsTable({ standings, teams }: { standings: Standing[]; teams: Te
               const team = getTeam(s.team_id)
               const setDiff = s.sets_won - s.sets_lost
               const gameDiff = s.games_won - s.games_lost
-              const isTop3 = i < 3
+              const isOctavos = octavosCutoff >= 0 && i >= octavosCutoff
               return (
-                <tr key={s.team_id} style={{ borderBottom:'1px solid rgba(0,0,0,0.05)', background: i === 0 ? 'rgba(22,163,74,0.03)' : 'transparent' }}>
+                <tr key={s.team_id} style={{ borderBottom:'1px solid rgba(0,0,0,0.05)', background: isOctavos ? 'rgba(234,88,12,0.02)' : i === 0 ? 'rgba(22,163,74,0.03)' : 'transparent' }}>
                   <td style={{ padding:'12px 12px', textAlign:'center' }}>
                     <span style={{
                       display:'inline-flex', alignItems:'center', justifyContent:'center',
                       width:22, height:22, borderRadius:'50%', fontSize:11, fontWeight:700,
-                      background: i===0 ? 'rgba(22,163,74,0.15)' : i===1 ? 'rgba(0,0,0,0.07)' : i===2 ? 'rgba(0,0,0,0.05)' : 'transparent',
-                      color: i===0 ? '#15803d' : '#888',
+                      background: isOctavos ? 'rgba(234,88,12,0.15)' : i===0 ? 'rgba(22,163,74,0.15)' : i===1 ? 'rgba(0,0,0,0.07)' : i===2 ? 'rgba(0,0,0,0.05)' : 'transparent',
+                      color: isOctavos ? '#ea580c' : i===0 ? '#15803d' : '#888',
                     }}>{i+1}</span>
                   </td>
                   <td style={{ padding:'12px 12px', fontWeight:600, color:'#111' }}>
@@ -74,6 +87,94 @@ function StandingsTable({ standings, teams }: { standings: Standing[]; teams: Te
           </tbody>
         </table>
       </div>
+    </div>
+    {octavosCutoff >= 0 && (
+      <div style={{ display:'flex', gap:12, marginTop:8, paddingLeft:4 }}>
+        <span style={{ fontSize:10, color:'#15803d', fontWeight:600 }}>● Clasifican directo a Cuartos</span>
+        <span style={{ fontSize:10, color:'#ea580c', fontWeight:600 }}>● Juegan Octavos de Final</span>
+      </div>
+    )}
+    </div>
+  )
+}
+
+// ── Playoffs ──────────────────────────────────────────────
+function PlayoffsView({ rounds, matches, teams }: { rounds: Round[]; matches: LeagueMatch[]; teams: Team[] }) {
+  const getTeam = (id: string) => teams.find(t => t.id === id)
+  const sortedRounds = [...rounds].sort((a, b) =>
+    PHASE_ORDER.indexOf(a.phase ?? '') - PHASE_ORDER.indexOf(b.phase ?? '')
+  )
+
+  if (!sortedRounds.length) {
+    return (
+      <div style={{ textAlign:'center', padding:'60px 0', color:'#bbb' }}>
+        <div style={{ fontSize:36, marginBottom:12 }}>🏆</div>
+        <p style={{ fontSize:14 }}>Los playoffs aún no comenzaron.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+      {sortedRounds.map(round => {
+        const rMatches = matches.filter(m => m.round_id === round.id)
+        const phaseName = PHASE_LABELS[round.phase ?? ''] ?? round.label ?? round.phase
+
+        return (
+          <div key={round.id} style={{ background:'#fff', border:'1px solid rgba(0,0,0,0.08)', borderRadius:14, overflow:'hidden', boxShadow:'0 1px 4px rgba(0,0,0,0.04)' }}>
+            <div style={{ padding:'14px 18px', borderBottom:'1px solid rgba(0,0,0,0.06)', background:'#0a0a0a' }}>
+              <div style={{ fontFamily:"'Bebas Neue', sans-serif", fontSize:20, letterSpacing:'0.05em', color:'#fff' }}>
+                {phaseName}
+              </div>
+            </div>
+
+            {rMatches.length === 0 ? (
+              <div style={{ padding:'20px 18px', color:'#bbb', fontSize:13, textAlign:'center' }}>
+                Sin partidos programados.
+              </div>
+            ) : rMatches.map((m, i) => {
+              const home = getTeam(m.home_team_id)
+              const away = getTeam(m.away_team_id)
+              const isDone = m.status === 'done'
+              const homeWin = m.winner_id === m.home_team_id
+              const awayWin = m.winner_id === m.away_team_id
+
+              return (
+                <div key={m.id} style={{
+                  padding:'16px 18px',
+                  borderBottom: i < rMatches.length - 1 ? '1px solid rgba(0,0,0,0.05)' : 'none',
+                }}>
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr auto 1fr', gap:8, alignItems:'center' }}>
+                    <div>
+                      <div style={{ fontWeight: homeWin ? 700 : 500, fontSize:14, color: isDone ? (homeWin ? '#111' : '#aaa') : '#111' }}>
+                        {home?.name ?? '—'}
+                      </div>
+                      {homeWin && <div style={{ fontSize:11, color:'#15803d', fontWeight:600, marginTop:2 }}>Clasificado ›</div>}
+                    </div>
+
+                    <div style={{ textAlign:'center', minWidth:56, padding:'0 8px' }}>
+                      {isDone ? (
+                        <div style={{ fontFamily:"'Bebas Neue', sans-serif", fontSize:26, letterSpacing:'0.03em', color:'#111', lineHeight:1 }}>
+                          {m.home_sets}–{m.away_sets}
+                        </div>
+                      ) : (
+                        <span style={{ fontSize:16, color:'#ddd', fontWeight:300 }}>vs</span>
+                      )}
+                    </div>
+
+                    <div style={{ textAlign:'right' }}>
+                      <div style={{ fontWeight: awayWin ? 700 : 500, fontSize:14, color: isDone ? (awayWin ? '#111' : '#aaa') : '#111' }}>
+                        {away?.name ?? '—'}
+                      </div>
+                      {awayWin && <div style={{ fontSize:11, color:'#15803d', fontWeight:600, marginTop:2 }}>‹ Clasificado</div>}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -204,7 +305,7 @@ export default function LeaguePublic() {
   const [rounds,    setRounds]    = useState<Round[]>([])
   const [matches,   setMatches]   = useState<LeagueMatch[]>([])
   const [standings, setStandings] = useState<Standing[]>([])
-  const [tab,       setTab]       = useState<'tabla'|'fixture'>('tabla')
+  const [tab,       setTab]       = useState<'tabla'|'fixture'|'playoffs'>('tabla')
   const [loading,   setLoading]   = useState(true)
 
   useEffect(() => {
@@ -294,7 +395,7 @@ export default function LeaguePublic() {
 
       {/* Tabs */}
       <div style={{ display:'flex', gap:2, background:'#f5f5f5', border:'1px solid rgba(0,0,0,0.07)', borderRadius:10, padding:4, marginBottom:20 }}>
-        {([['tabla','Tabla'],['fixture','Fixture']] as const).map(([id, label]) => (
+        {([['tabla','Tabla'],['fixture','Fixture'],['playoffs','Playoffs']] as const).map(([id, label]) => (
           <button key={id} onClick={() => setTab(id)} style={{
             flex:1, padding:'8px 16px', borderRadius:7, border:'none', cursor:'pointer', fontFamily:"'Bebas Neue', sans-serif",
             fontSize:15, letterSpacing:'0.05em',
@@ -306,10 +407,17 @@ export default function LeaguePublic() {
       </div>
 
       {/* Contenido */}
-      <div key={tab}>
-        {tab === 'tabla' && <StandingsTable standings={standings} teams={teams} />}
-        {tab === 'fixture' && <FixtureView rounds={rounds} matches={matches} teams={teams} />}
-      </div>
+      {(() => {
+        const regularRounds = rounds.filter(r => !r.phase || r.phase === 'regular')
+        const playoffRounds = rounds.filter(r => r.phase && r.phase !== 'regular')
+        return (
+          <div key={tab}>
+            {tab === 'tabla'    && <StandingsTable standings={standings} teams={teams} />}
+            {tab === 'fixture'  && <FixtureView rounds={regularRounds} matches={matches} teams={teams} />}
+            {tab === 'playoffs' && <PlayoffsView rounds={playoffRounds} matches={matches} teams={teams} />}
+          </div>
+        )
+      })()}
     </div>
   )
 }

@@ -19,6 +19,7 @@ export interface Round {
   number: number
   label: string | null
   date: string | null
+  phase: 'regular' | 'octavos' | 'cuartos' | 'semis' | 'final'
 }
 
 export interface SetScore {

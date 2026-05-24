@@ -199,6 +199,8 @@ function FixtureSection({ leagueId, teams }: { leagueId: string; teams: Team[] }
   }
   useEffect(() => { load() }, [leagueId])
 
+  const displayRounds = rounds.filter(r => !r.phase || r.phase === 'regular')
+
   async function generateFixture() {
     if (!confirm('¿Generar fixture automático? Esto borrará el fixture actual.')) return
     setGen(true)
@@ -254,7 +256,7 @@ function FixtureSection({ leagueId, teams }: { leagueId: string; teams: Team[] }
       {fb && <p style={{ marginBottom:12, fontSize:12, color: fb.startsWith('❌')||fb.startsWith('⚠') ? '#dc2626' : '#15803d' }}>{fb}</p>}
 
       <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:16 }}>
-        {rounds.map(round => {
+        {displayRounds.map(round => {
           const rMatches = matches.filter(m=>m.round_id===round.id)
           const isOpen = openRound===round.id
           return (
@@ -421,13 +423,14 @@ function ResultsSection({ leagueId, teams }: { leagueId: string; teams: Team[] }
   }
 
   const getTeam = (id:string) => teams.find(t=>t.id===id)
+  const regularRounds = rounds.filter(r => !r.phase || r.phase === 'regular')
 
   return (
     <div>
       <h3 style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:20, marginBottom:16, letterSpacing:'0.03em' }}>Cargar resultados</h3>
       {fb && <p style={{ marginBottom:12, fontSize:12, color: fb.startsWith('❌')||fb.startsWith('⚠') ? '#dc2626' : '#15803d' }}>{fb}</p>}
 
-      {rounds.map(round => {
+      {regularRounds.map(round => {
         const rMatches = matches.filter(m=>m.round_id===round.id)
         const pending = rMatches.filter(m=>m.status!=='done')
         const done    = rMatches.filter(m=>m.status==='done')
@@ -511,11 +514,293 @@ function ResultsSection({ leagueId, teams }: { leagueId: string; teams: Team[] }
   )
 }
 
+// ── Sección: Playoffs ─────────────────────────────────────
+const PHASE_ORDER_ADMIN = ['octavos', 'cuartos', 'semis', 'final']
+const PHASE_LABELS_ADMIN: Record<string, string> = {
+  octavos: 'Octavos de Final',
+  cuartos: 'Cuartos de Final',
+  semis: 'Semifinales',
+  final: 'Final',
+}
+
+function PlayoffsSection({ leagueId, teams }: { leagueId: string; teams: Team[] }) {
+  const [rounds, setRounds]     = useState<Round[]>([])
+  const [matches, setMatches]   = useState<LeagueMatch[]>([])
+  const [standings, setStandings] = useState<Standing[]>([])
+  const [fb, setFb]             = useState('')
+  const [newPhase, setNewPhase] = useState<'octavos'|'cuartos'|'semis'|'final'>('octavos')
+  const [addingTo, setAddingTo] = useState<string|null>(null)
+  const [newHome, setNewHome]   = useState('')
+  const [newAway, setNewAway]   = useState('')
+  const [editingMatch, setEditingMatch] = useState<string|null>(null)
+  const [series, setSeries]     = useState<'2-0'|'2-1'>('2-0')
+  const [winner, setWinner]     = useState<'home'|'away'>('home')
+
+  async function load() {
+    const { data: r } = await supabase.from('rounds').select('*').eq('league_id', leagueId).neq('phase', 'regular').order('number')
+    const playoffRounds = r ?? []
+    setRounds(playoffRounds)
+
+    if (playoffRounds.length > 0) {
+      const ids = playoffRounds.map(ro => ro.id)
+      const { data: m } = await supabase.from('league_matches').select('*').in('round_id', ids)
+      if (m) setMatches(m)
+    } else {
+      setMatches([])
+    }
+
+    const { data: s } = await supabase.from('league_standings').select('*').eq('league_id', leagueId)
+    if (s) setStandings(s)
+  }
+  useEffect(() => { load() }, [leagueId])
+
+  const sortedStandings = [...standings].sort((a, b) => {
+    if (b.points !== a.points) return b.points - a.points
+    const dA = a.sets_won - a.sets_lost, dB = b.sets_won - b.sets_lost
+    if (dB !== dA) return dB - dA
+    return (b.games_won - b.games_lost) - (a.games_won - a.games_lost)
+  })
+
+  const sortedRounds = [...rounds].sort((a, b) =>
+    PHASE_ORDER_ADMIN.indexOf(a.phase ?? '') - PHASE_ORDER_ADMIN.indexOf(b.phase ?? '')
+  )
+
+  const getTeam = (id: string) => teams.find(t => t.id === id)
+  const n = sortedStandings.length
+  const octavosCutoff = n > 4 ? n - 4 : 0
+
+  async function createPhase() {
+    if (rounds.some(r => r.phase === newPhase)) { showFb(setFb, '⚠ Esta fase ya existe.'); return }
+    const phaseToNum: Record<string, number> = { octavos: 100, cuartos: 101, semis: 102, final: 103 }
+    const { error } = await supabase.from('rounds').insert({
+      league_id: leagueId, number: phaseToNum[newPhase],
+      label: PHASE_LABELS_ADMIN[newPhase], phase: newPhase,
+    })
+    if (error) { showFb(setFb, '❌ ' + error.message); return }
+    showFb(setFb, `✓ Fase "${PHASE_LABELS_ADMIN[newPhase]}" creada.`)
+    load()
+  }
+
+  async function addMatch(roundId: string) {
+    if (!newHome || !newAway) { showFb(setFb, '⚠ Seleccioná ambos equipos.'); return }
+    if (newHome === newAway) { showFb(setFb, '⚠ Los equipos deben ser distintos.'); return }
+    const { error } = await supabase.from('league_matches').insert({
+      league_id: leagueId, round_id: roundId,
+      home_team_id: newHome, away_team_id: newAway,
+    })
+    if (error) { showFb(setFb, '❌ ' + error.message); return }
+    showFb(setFb, '✓ Partido agregado.')
+    setNewHome(''); setNewAway(''); setAddingTo(null)
+    load()
+  }
+
+  function openResult(m: LeagueMatch) {
+    setEditingMatch(m.id)
+    if (m.status === 'done') {
+      setSeries(Math.min(m.home_sets, m.away_sets) === 1 ? '2-1' : '2-0')
+      setWinner(m.winner_id === m.home_team_id ? 'home' : 'away')
+    } else {
+      setSeries('2-0')
+      setWinner('home')
+    }
+  }
+
+  async function saveResult(m: LeagueMatch) {
+    const winnerId = winner === 'home' ? m.home_team_id : m.away_team_id
+    const loserSets = series === '2-1' ? 1 : 0
+    const home_sets = winner === 'home' ? 2 : loserSets
+    const away_sets = winner === 'away' ? 2 : loserSets
+    const { error } = await supabase.from('league_matches').update({
+      home_sets, away_sets, winner_id: winnerId, status: 'done',
+      home_games: 0, away_games: 0, home_points: 0, away_points: 0,
+    }).eq('id', m.id)
+    if (error) { showFb(setFb, '❌ ' + error.message); return }
+    showFb(setFb, '✓ Resultado guardado.')
+    setEditingMatch(null)
+    load()
+  }
+
+  const allPhases = ['octavos','cuartos','semis','final']
+  const availablePhases = allPhases.filter(p => !rounds.some(r => r.phase === p))
+
+  return (
+    <div>
+      <h3 style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:20, marginBottom:16, letterSpacing:'0.03em' }}>Playoffs</h3>
+      {fb && <p style={{ marginBottom:12, fontSize:12, color: fb.startsWith('❌')||fb.startsWith('⚠') ? '#dc2626' : '#15803d' }}>{fb}</p>}
+
+      {/* Clasificación de referencia */}
+      {sortedStandings.length > 0 && (
+        <div style={{ marginBottom:20 }}>
+          <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.1em', color:'#999', textTransform:'uppercase', marginBottom:8 }}>
+            Clasificación actual
+          </div>
+          <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
+            {sortedStandings.map((s, i) => {
+              const team = getTeam(s.team_id)
+              const isOctavos = n > 4 && i >= octavosCutoff
+              return (
+                <div key={s.team_id} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 12px', background:'#fff', border:'1px solid rgba(0,0,0,0.06)', borderRadius:8 }}>
+                  <span style={{ fontSize:11, color:'#bbb', width:18, textAlign:'center' }}>{i+1}</span>
+                  <span style={{ flex:1, fontWeight:500, fontSize:13 }}>{team?.name ?? '—'}</span>
+                  <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:99,
+                    background: isOctavos ? 'rgba(234,88,12,0.1)' : 'rgba(22,163,74,0.1)',
+                    color: isOctavos ? '#ea580c' : '#15803d',
+                  }}>
+                    {isOctavos ? 'Octavos' : 'Cuartos'}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Rondas de playoffs existentes */}
+      {sortedRounds.map(round => {
+        const rMatches = matches.filter(m => m.round_id === round.id)
+        return (
+          <div key={round.id} style={{ marginBottom:14, background:'#fff', border:'1px solid rgba(0,0,0,0.08)', borderRadius:12, overflow:'hidden' }}>
+            <div style={{ padding:'12px 16px', background:'#f9fafb', borderBottom:'1px solid rgba(0,0,0,0.06)' }}>
+              <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:17, letterSpacing:'0.03em', color:'#111' }}>
+                {round.label ?? PHASE_LABELS_ADMIN[round.phase ?? '']}
+              </div>
+            </div>
+
+            <div style={{ padding:'12px 16px' }}>
+              {rMatches.map(m => {
+                const home = getTeam(m.home_team_id)
+                const away = getTeam(m.away_team_id)
+                const isDone = m.status === 'done'
+                const isEditing = editingMatch === m.id
+                const homeWin = m.winner_id === m.home_team_id
+
+                return (
+                  <div key={m.id} style={{ marginBottom:8, border:'1px solid rgba(0,0,0,0.06)', borderRadius:8, overflow:'hidden' }}>
+                    <button
+                      onClick={() => isEditing ? setEditingMatch(null) : openResult(m)}
+                      style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'10px 14px', background:'none', border:'none', cursor:'pointer', fontFamily:'inherit', textAlign:'left' as const }}
+                    >
+                      <div style={{ flex:1 }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' as const }}>
+                          <span style={{ fontWeight: isDone && homeWin ? 700 : 500, fontSize:13, color: isDone ? (homeWin ? '#111' : '#aaa') : '#111' }}>
+                            {home?.name ?? '—'}
+                          </span>
+                          {isDone ? (
+                            <span style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:16, letterSpacing:'0.03em', color:'#111', padding:'0 2px' }}>
+                              {m.home_sets}–{m.away_sets}
+                            </span>
+                          ) : (
+                            <span style={{ color:'#bbb', fontSize:11 }}>vs</span>
+                          )}
+                          <span style={{ fontWeight: isDone && !homeWin ? 700 : 500, fontSize:13, color: isDone ? (!homeWin ? '#111' : '#aaa') : '#111' }}>
+                            {away?.name ?? '—'}
+                          </span>
+                        </div>
+                        {isDone && (
+                          <div style={{ fontSize:11, color:'#15803d', marginTop:2 }}>
+                            Ganador: {homeWin ? home?.name : away?.name}
+                          </div>
+                        )}
+                      </div>
+                      <span style={{ fontSize:11, color: isDone ? '#15803d' : '#999', fontWeight:600, flexShrink:0 }}>
+                        {isDone ? '✓ Editar' : 'Cargar'}
+                      </span>
+                    </button>
+
+                    {isEditing && (
+                      <div style={{ padding:'12px 14px', borderTop:'1px solid rgba(0,0,0,0.06)', background:'#fafafa' }}>
+                        <div style={{ marginBottom:10 }}>
+                          <div style={{ fontSize:10, fontWeight:700, letterSpacing:'0.08em', color:'#999', textTransform:'uppercase', marginBottom:6 }}>Resultado de la serie</div>
+                          <div style={{ display:'flex', gap:6 }}>
+                            {(['2-0','2-1'] as const).map(opt => (
+                              <button key={opt} onClick={() => setSeries(opt)} style={{
+                                flex:1, padding:'10px', borderRadius:8, cursor:'pointer',
+                                fontFamily:"'Bebas Neue',sans-serif", fontSize:20, letterSpacing:'0.05em',
+                                background: series === opt ? '#111' : '#fff',
+                                color: series === opt ? '#fff' : '#bbb',
+                                border: series === opt ? '1.5px solid #111' : '1px solid #e5e7eb',
+                              }}>{opt}</button>
+                            ))}
+                          </div>
+                        </div>
+                        <div style={{ marginBottom:12 }}>
+                          <div style={{ fontSize:10, fontWeight:700, letterSpacing:'0.08em', color:'#999', textTransform:'uppercase', marginBottom:6 }}>Ganador</div>
+                          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6 }}>
+                            {(['home','away'] as const).map(side => (
+                              <button key={side} onClick={() => setWinner(side)} style={{
+                                padding:'10px', borderRadius:8, cursor:'pointer', fontFamily:'inherit', textAlign:'left' as const,
+                                background: winner === side ? 'rgba(22,163,74,0.08)' : '#fff',
+                                border: winner === side ? '1.5px solid rgba(22,163,74,0.4)' : '1px solid #e5e7eb',
+                              }}>
+                                <div style={{ fontSize:9, color:'#bbb', textTransform:'uppercase' as const, letterSpacing:'0.06em', marginBottom:2 }}>Ganador</div>
+                                <div style={{ fontWeight:600, fontSize:13, color: winner === side ? '#15803d' : '#111' }}>
+                                  {side === 'home' ? home?.name : away?.name}
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <button onClick={() => saveResult(m)} style={{ ...btn('#16a34a'), width:'100%', padding:'11px' }}>
+                          Guardar resultado →
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+
+              {addingTo === round.id ? (
+                <div style={{ marginTop:8, background:'#f9fafb', borderRadius:8, padding:12 }}>
+                  <div style={{ fontSize:10, fontWeight:700, letterSpacing:'0.1em', color:'#bbb', textTransform:'uppercase', marginBottom:8 }}>Agregar partido</div>
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr auto 1fr auto', gap:6, alignItems:'center' }}>
+                    <select value={newHome} onChange={e => setNewHome(e.target.value)} style={inp}>
+                      <option value="">Equipo A</option>
+                      {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
+                    <span style={{ color:'#bbb', fontSize:11 }}>vs</span>
+                    <select value={newAway} onChange={e => setNewAway(e.target.value)} style={inp}>
+                      <option value="">Equipo B</option>
+                      {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
+                    <button onClick={() => addMatch(round.id)} style={{ ...btn('#16a34a'), fontSize:12, padding:'8px 14px' }}>+</button>
+                  </div>
+                  <button onClick={() => setAddingTo(null)} style={{ marginTop:6, background:'none', border:'none', color:'#999', cursor:'pointer', fontSize:12, fontFamily:'inherit' }}>
+                    Cancelar
+                  </button>
+                </div>
+              ) : (
+                <button onClick={() => setAddingTo(round.id)} style={{ marginTop: rMatches.length ? 8 : 0, background:'none', border:'1px dashed #ddd', borderRadius:8, color:'#999', cursor:'pointer', fontSize:12, padding:'8px', width:'100%', fontFamily:'inherit' }}>
+                  + Agregar partido
+                </button>
+              )}
+            </div>
+          </div>
+        )
+      })}
+
+      {/* Crear nueva fase */}
+      {availablePhases.length > 0 && (
+        <div style={{ background:'#f9fafb', border:'1px solid #e5e7eb', borderRadius:12, padding:16 }}>
+          <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.1em', color:'#999', textTransform:'uppercase', marginBottom:8 }}>Crear fase</div>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr auto', gap:8 }}>
+            <select value={newPhase} onChange={e => setNewPhase(e.target.value as 'octavos'|'cuartos'|'semis'|'final')} style={inp}>
+              {availablePhases.map(p => (
+                <option key={p} value={p}>{PHASE_LABELS_ADMIN[p]}</option>
+              ))}
+            </select>
+            <button onClick={createPhase} style={btn()}>Crear</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Admin principal ───────────────────────────────────────
 export default function LeagueAdmin() {
   const [leagueId, setLeagueId] = useState<string|null>(null)
   const [teams, setTeams]       = useState<Team[]>([])
-  const [step, setStep]         = useState<'leagues'|'teams'|'fixture'|'results'>('leagues')
+  const [step, setStep]         = useState<'leagues'|'teams'|'fixture'|'results'|'playoffs'>('leagues')
 
   useEffect(() => {
     if (!leagueId) return
@@ -534,6 +819,7 @@ export default function LeagueAdmin() {
     { id:'teams',    label:'Equipos'   },
     { id:'fixture',  label:'Fixture'   },
     { id:'results',  label:'Resultados'},
+    { id:'playoffs', label:'Playoffs'  },
   ] as const
 
   return (
@@ -560,6 +846,7 @@ export default function LeagueAdmin() {
       {step==='teams'    && leagueId && <TeamsSection leagueId={leagueId} />}
       {step==='fixture'  && leagueId && <FixtureSection leagueId={leagueId} teams={teams} />}
       {step==='results'  && leagueId && <ResultsSection leagueId={leagueId} teams={teams} />}
+      {step==='playoffs' && leagueId && <PlayoffsSection leagueId={leagueId} teams={teams} />}
     </div>
   )
 }
