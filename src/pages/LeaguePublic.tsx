@@ -56,13 +56,13 @@ function StandingsTable({ standings, teams }: { standings: Standing[]; teams: Te
               const gameDiff = s.games_won - s.games_lost
               const isOctavos = octavosCutoff >= 0 && i >= octavosCutoff
               return (
-                <tr key={s.team_id} style={{ borderBottom:'1px solid rgba(0,0,0,0.05)', background: isOctavos ? 'rgba(234,88,12,0.02)' : i === 0 ? 'rgba(22,163,74,0.03)' : 'transparent' }}>
+                <tr key={s.team_id} style={{ borderBottom:'1px solid rgba(0,0,0,0.05)', background: isOctavos ? 'rgba(234,88,12,0.02)' : 'rgba(22,163,74,0.02)' }}>
                   <td style={{ padding:'12px 12px', textAlign:'center' }}>
                     <span style={{
                       display:'inline-flex', alignItems:'center', justifyContent:'center',
                       width:22, height:22, borderRadius:'50%', fontSize:11, fontWeight:700,
-                      background: isOctavos ? 'rgba(234,88,12,0.15)' : i===0 ? 'rgba(22,163,74,0.15)' : i===1 ? 'rgba(0,0,0,0.07)' : i===2 ? 'rgba(0,0,0,0.05)' : 'transparent',
-                      color: isOctavos ? '#ea580c' : i===0 ? '#15803d' : '#888',
+                      background: isOctavos ? 'rgba(234,88,12,0.15)' : 'rgba(22,163,74,0.15)',
+                      color: isOctavos ? '#ea580c' : '#15803d',
                     }}>{i+1}</span>
                   </td>
                   <td style={{ padding:'12px 12px', fontWeight:600, color:'#111' }}>
