@@ -533,6 +533,7 @@ function PlayoffsSection({ leagueId, teams }: { leagueId: string; teams: Team[] 
   const [newHome, setNewHome]   = useState('')
   const [newAway, setNewAway]   = useState('')
   const [editingMatch, setEditingMatch] = useState<string|null>(null)
+  const [confirmDeleteMatch, setConfirmDeleteMatch] = useState<string|null>(null)
   const [series, setSeries]     = useState<'2-0'|'2-1'>('2-0')
   const [winner, setWinner]     = useState<'home'|'away'>('home')
 
@@ -591,6 +592,14 @@ function PlayoffsSection({ leagueId, teams }: { leagueId: string; teams: Team[] 
     if (error) { showFb(setFb, '❌ ' + error.message); return }
     showFb(setFb, '✓ Partido agregado.')
     setNewHome(''); setNewAway(''); setAddingTo(null)
+    load()
+  }
+
+  async function deleteMatch(id: string) {
+    const { error } = await supabase.from('league_matches').delete().eq('id', id)
+    if (error) { showFb(setFb, '❌ ' + error.message); return }
+    setConfirmDeleteMatch(null)
+    setEditingMatch(null)
     load()
   }
 
@@ -676,6 +685,13 @@ function PlayoffsSection({ leagueId, teams }: { leagueId: string; teams: Team[] 
 
                 return (
                   <div key={m.id} style={{ marginBottom:8, border:'1px solid rgba(0,0,0,0.06)', borderRadius:8, overflow:'hidden' }}>
+                    {confirmDeleteMatch === m.id ? (
+                      <div style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 14px', background:'#fff5f5' }}>
+                        <span style={{ flex:1, fontSize:13, color:'#dc2626' }}>¿Eliminar este partido?</span>
+                        <button onClick={() => deleteMatch(m.id)} style={{ background:'#dc2626', border:'none', color:'#fff', cursor:'pointer', fontSize:12, fontWeight:600, padding:'5px 12px', borderRadius:6, fontFamily:'inherit' }}>Eliminar</button>
+                        <button onClick={() => setConfirmDeleteMatch(null)} style={{ background:'none', border:'none', color:'#666', cursor:'pointer', fontSize:12, fontFamily:'inherit' }}>Cancelar</button>
+                      </div>
+                    ) : (
                     <button
                       onClick={() => isEditing ? setEditingMatch(null) : openResult(m)}
                       style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'10px 14px', background:'none', border:'none', cursor:'pointer', fontFamily:'inherit', textAlign:'left' as const }}
@@ -702,10 +718,16 @@ function PlayoffsSection({ leagueId, teams }: { leagueId: string; teams: Team[] 
                           </div>
                         )}
                       </div>
+                      <button
+                        onClick={e => { e.stopPropagation(); setConfirmDeleteMatch(m.id); setEditingMatch(null) }}
+                        style={{ background:'none', border:'none', color:'#dc2626', cursor:'pointer', fontSize:13, padding:'2px 6px', flexShrink:0 }}
+                        title="Eliminar partido"
+                      >✕</button>
                       <span style={{ fontSize:11, color: isDone ? '#15803d' : '#999', fontWeight:600, flexShrink:0 }}>
                         {isDone ? '✓ Editar' : 'Cargar'}
                       </span>
                     </button>
+                    )}
 
                     {isEditing && (
                       <div style={{ padding:'12px 14px', borderTop:'1px solid rgba(0,0,0,0.06)', background:'#fafafa' }}>
