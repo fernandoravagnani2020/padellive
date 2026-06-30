@@ -42,10 +42,7 @@ FONT_BLACK = os.environ.get('FONT_BLACK', '/Users/fernandoravagnani/Library/Font
 FONT_BOLD  = os.environ.get('FONT_BOLD',  '/Users/fernandoravagnani/Library/Fonts/CamptonBold.otf')
 
 # ── API ───────────────────────────────────────────────────────────────────────
-API_URL = (
-    'https://script.google.com/macros/s/'
-    'AKfycbyd4O4dWAUnUgGeyok35PCeGSRAbxLu4uLfh6_WQQiOYSREVlkX6Dpru7sI3Fiuusn0/exec'
-)
+API_URL = 'https://admin-reservas-seven.vercel.app/exec'
 TIME_SLOTS  = ['09:30','11:00','12:30','14:30','16:00','17:30','19:00','20:30','22:00']
 DIAS_FDS    = ['SÁBADO', 'DOMINGO']
 MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']

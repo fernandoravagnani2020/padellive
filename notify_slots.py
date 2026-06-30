@@ -21,11 +21,8 @@ ART = timezone(timedelta(hours=-3))
 def now_art() -> datetime:
     return datetime.now(ART).replace(tzinfo=None)
 
-# ── API de turnos (Google Sheets) ────────────────────────────────────────────
-API_URL = (
-    'https://script.google.com/macros/s/'
-    'AKfycbyd4O4dWAUnUgGeyok35PCeGSRAbxLu4uLfh6_WQQiOYSREVlkX6Dpru7sI3Fiuusn0/exec'
-)
+# ── API de turnos (Vercel + Supabase) ────────────────────────────────────────
+API_URL = 'https://admin-reservas-seven.vercel.app/exec'
 TIME_SLOTS  = ['09:30','11:00','12:30','14:30','16:00','17:30','19:00','20:30','22:00']
 DIAS_FDS    = ['SÁBADO', 'DOMINGO']
 HORA_INICIO = '14:30'
