@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      injectRegister: 'auto',
+      injectRegister: false, // lo registramos manualmente en main.tsx (con auto-reload)
       devOptions: { enabled: false },
 
       // Manifest (reemplaza al public/manifest.json)

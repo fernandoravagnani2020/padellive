@@ -26,3 +26,9 @@ dist-ssr
 # Credenciales y flyers generados
 .env
 flyers/
+.vercel
+.env*
+
+# artefactos compilados de la config
+vite.config.js
+vite.config.d.ts
