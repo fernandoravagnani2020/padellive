@@ -32,3 +32,6 @@ flyers/
 # artefactos compilados de la config
 vite.config.js
 vite.config.d.ts
+
+# artefactos de build de TypeScript
+*.tsbuildinfo
