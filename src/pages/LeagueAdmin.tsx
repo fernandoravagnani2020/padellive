@@ -570,15 +570,16 @@ function PlayoffsSection({ leagueId, teams }: { leagueId: string; teams: Team[] 
   const n = sortedStandings.length
   const octavosCutoff = n > 4 ? n - 4 : 0
 
-  async function createPhase() {
-    if (rounds.some(r => r.phase === newPhase)) { showFb(setFb, '⚠ Esta fase ya existe.'); return }
+  async function createPhase(phase: 'octavos'|'cuartos'|'semis'|'final') {
+    if (!phase) return
+    if (rounds.some(r => r.phase === phase)) { showFb(setFb, '⚠ Esta fase ya existe.'); return }
     const phaseToNum: Record<string, number> = { octavos: 100, cuartos: 101, semis: 102, final: 103 }
     const { error } = await supabase.from('rounds').insert({
-      league_id: leagueId, number: phaseToNum[newPhase],
-      label: PHASE_LABELS_ADMIN[newPhase], phase: newPhase,
+      league_id: leagueId, number: phaseToNum[phase],
+      label: PHASE_LABELS_ADMIN[phase], phase,
     })
     if (error) { showFb(setFb, '❌ ' + error.message); return }
-    showFb(setFb, `✓ Fase "${PHASE_LABELS_ADMIN[newPhase]}" creada.`)
+    showFb(setFb, `✓ Fase "${PHASE_LABELS_ADMIN[phase]}" creada.`)
     load()
   }
 
@@ -629,8 +630,11 @@ function PlayoffsSection({ leagueId, teams }: { leagueId: string; teams: Team[] 
     load()
   }
 
-  const allPhases = ['octavos','cuartos','semis','final']
+  const allPhases = ['octavos','cuartos','semis','final'] as const
   const availablePhases = allPhases.filter(p => !rounds.some(r => r.phase === p))
+  // Cuando queda una sola fase disponible, el <select> no dispara onChange y
+  // newPhase puede quedar con un valor obsoleto. Usamos siempre una fase válida.
+  const selectedPhase = (availablePhases.includes(newPhase) ? newPhase : availablePhases[0]) as 'octavos'|'cuartos'|'semis'|'final'
 
   return (
     <div>
@@ -805,12 +809,12 @@ function PlayoffsSection({ leagueId, teams }: { leagueId: string; teams: Team[] 
         <div style={{ background:'#f9fafb', border:'1px solid #e5e7eb', borderRadius:12, padding:16 }}>
           <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.1em', color:'#999', textTransform:'uppercase', marginBottom:8 }}>Crear fase</div>
           <div style={{ display:'grid', gridTemplateColumns:'1fr auto', gap:8 }}>
-            <select value={newPhase} onChange={e => setNewPhase(e.target.value as 'octavos'|'cuartos'|'semis'|'final')} style={inp}>
+            <select value={selectedPhase} onChange={e => setNewPhase(e.target.value as 'octavos'|'cuartos'|'semis'|'final')} style={inp}>
               {availablePhases.map(p => (
                 <option key={p} value={p}>{PHASE_LABELS_ADMIN[p]}</option>
               ))}
             </select>
-            <button onClick={createPhase} style={btn()}>Crear</button>
+            <button onClick={() => createPhase(selectedPhase)} style={btn()}>Crear</button>
           </div>
         </div>
       )}
