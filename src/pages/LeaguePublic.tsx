@@ -297,6 +297,41 @@ function FixtureView({ rounds, matches, teams }: { rounds: Round[]; matches: Lea
   )
 }
 
+// ── Card de liga finalizada (historial) ───────────────────
+function FinishedLeagueCard({ league, champion, onClick }: { league: League; champion?: string; onClick: () => void }) {
+  return (
+    <div onClick={onClick} style={{
+      background:'#fff', border:'1px solid rgba(0,0,0,0.08)', borderRadius:14, padding:'18px 20px', cursor:'pointer',
+      boxShadow:'0 1px 4px rgba(0,0,0,0.04)', opacity:0.85, transition:'all 0.15s',
+    }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:12 }}>
+        <span style={{ display:'inline-flex', alignItems:'center', fontSize:10, fontWeight:700, letterSpacing:'0.08em', padding:'3px 9px', borderRadius:99, textTransform:'uppercase', background:'rgba(0,0,0,0.03)', color:'#bbb', border:'1px solid rgba(0,0,0,0.07)' }}>
+          Finalizada
+        </span>
+        {league.season && <span style={{ fontSize:11, color:'#aaa', fontWeight:500 }}>Temporada {league.season}</span>}
+      </div>
+      <div style={{ fontFamily:"'Bebas Neue', sans-serif", fontSize:26, letterSpacing:'0.02em', lineHeight:1, color:'#111', marginBottom:4 }}>
+        {league.name}
+      </div>
+      {league.description && <div style={{ fontSize:12, color:'#aaa', marginBottom:12 }}>{league.description}</div>}
+      {champion && (
+        <div style={{ marginTop:12, marginBottom:16 }}>
+          <div style={{ fontSize:10, color:'#bbb', fontWeight:600, letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:2 }}>Campeón</div>
+          <div style={{ fontSize:14, fontWeight:700, color:'#111' }}>🏆 {champion}</div>
+        </div>
+      )}
+      <div style={{
+        display:'inline-flex', alignItems:'center', gap:6, marginTop: champion ? 0 : 12,
+        background:'rgba(0,0,0,0.05)', color:'#555',
+        fontFamily:"'Bebas Neue', sans-serif", fontSize:14, letterSpacing:'0.05em',
+        padding:'7px 16px', borderRadius:8, border:'1px solid rgba(0,0,0,0.1)',
+      }}>
+        Ver resultados →
+      </div>
+    </div>
+  )
+}
+
 // ── Página pública principal ──────────────────────────────
 export default function LeaguePublic() {
   const [leagues,   setLeagues]   = useState<League[]>([])
@@ -307,17 +342,36 @@ export default function LeaguePublic() {
   const [standings, setStandings] = useState<Standing[]>([])
   const [tab,       setTab]       = useState<'tabla'|'fixture'|'playoffs'>('tabla')
   const [loading,   setLoading]   = useState(true)
+  const [champions, setChampions] = useState<Record<string, string>>({})
 
   useEffect(() => {
     async function load() {
       const { data } = await supabase.from('leagues').select('*').order('created_at', { ascending: false })
       if (data?.length) {
         setLeagues(data)
-        setSelected(data[0].id)
+        const active = data.filter((l: League) => l.status !== 'finished')
+        setSelected(prev => prev && data.some((l: League) => l.id === prev) ? prev : (active[0]?.id ?? null))
+        loadChampions(data.filter((l: League) => l.status === 'finished').map((l: League) => l.id))
       }
       setLoading(false)
     }
+    // Campeón = ganador del partido de la ronda 'final'
+    async function loadChampions(ids: string[]) {
+      if (!ids.length) return
+      const { data: finals } = await supabase.from('rounds').select('id, league_id').in('league_id', ids).eq('phase', 'final')
+      if (!finals?.length) return
+      const { data: fm } = await supabase.from('league_matches').select('league_id, winner_id').in('round_id', finals.map(r => r.id)).not('winner_id', 'is', null)
+      if (!fm?.length) return
+      const { data: wt } = await supabase.from('teams').select('id, name').in('id', fm.map(m => m.winner_id))
+      const map: Record<string, string> = {}
+      fm.forEach(m => { const t = wt?.find(t => t.id === m.winner_id); if (t) map[m.league_id] = t.name })
+      setChampions(map)
+    }
     load()
+    const ch = supabase.channel('liga-list')
+      .on('postgres_changes', { event:'*', schema:'public', table:'leagues' }, load)
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
   }, [])
 
   useEffect(() => {
@@ -345,6 +399,27 @@ export default function LeaguePublic() {
   }, [selected])
 
   const league = leagues.find(l => l.id === selected)
+  const activeLeagues   = leagues.filter(l => l.status !== 'finished')
+  const finishedLeagues = leagues.filter(l => l.status === 'finished')
+  const isFinished = league?.status === 'finished'
+  const champion = league ? champions[league.id] : undefined
+
+  function openLeague(id: string | null) {
+    setSelected(id)
+    setTab('tabla')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const history = finishedLeagues.length > 0 && !isFinished && (
+    <div style={{ marginTop:40 }}>
+      <div style={{ fontSize:10, fontWeight:700, letterSpacing:'0.12em', color:'#bbb', textTransform:'uppercase', marginBottom:12 }}>
+        Historial
+      </div>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))', gap:10 }}>
+        {finishedLeagues.map(l => <FinishedLeagueCard key={l.id} league={l} champion={champions[l.id]} onClick={() => openLeague(l.id)} />)}
+      </div>
+    </div>
+  )
 
   if (loading) return (
     <div style={{ display:'flex', justifyContent:'center', alignItems:'center', height:200 }}>
@@ -359,12 +434,31 @@ export default function LeaguePublic() {
     </div>
   )
 
+  // Sin liga en curso: sólo historial
+  if (!league) return (
+    <div style={{ paddingTop:24 }}>
+      <div style={{ textAlign:'center', padding:'40px 0 0', color:'#bbb' }}>
+        <div style={{ fontSize:40, marginBottom:12 }}>🏅</div>
+        <p style={{ fontSize:14, color:'#aaa' }}>No hay ligas en curso.</p>
+      </div>
+      {history}
+    </div>
+  )
+
   return (
     <div>
-      {/* Selector de liga si hay más de una */}
-      {leagues.length > 1 && (
-        <div style={{ display:'flex', gap:6, overflowX:'auto', marginBottom:20, paddingBottom:2 }}>
-          {leagues.map(l => (
+      {/* Volver desde una liga finalizada */}
+      {isFinished && (
+        <button onClick={() => openLeague(activeLeagues[0]?.id ?? null)} style={{
+          marginTop:20, background:'none', border:'none', padding:0, cursor:'pointer', fontFamily:'inherit',
+          fontSize:13, fontWeight:600, color:'#888',
+        }}>← {activeLeagues.length ? 'Volver a la liga en curso' : 'Volver al historial'}</button>
+      )}
+
+      {/* Selector de liga si hay más de una en curso */}
+      {!isFinished && activeLeagues.length > 1 && (
+        <div style={{ display:'flex', gap:6, overflowX:'auto', marginTop:20, paddingBottom:2 }}>
+          {activeLeagues.map(l => (
             <button key={l.id} onClick={() => setSelected(l.id)} style={{
               padding:'7px 16px', borderRadius:8,
               border: selected===l.id ? '1px solid transparent' : '1px solid rgba(0,0,0,0.1)',
@@ -391,6 +485,15 @@ export default function LeaguePublic() {
           {league?.name}
         </h1>
         {league?.description && <p style={{ fontSize:13, color:'#888', marginTop:6 }}>{league.description}</p>}
+        {isFinished && champion && (
+          <div style={{ display:'inline-flex', alignItems:'center', gap:10, marginTop:14, padding:'10px 16px', borderRadius:12, background:'linear-gradient(135deg, #fef3c7, #fde68a)', border:'1px solid rgba(217,119,6,0.25)' }}>
+            <span style={{ fontSize:22 }}>🏆</span>
+            <div>
+              <div style={{ fontSize:10, fontWeight:700, letterSpacing:'0.1em', color:'#b45309', textTransform:'uppercase' }}>Campeón</div>
+              <div style={{ fontFamily:"'Bebas Neue', sans-serif", fontSize:20, letterSpacing:'0.03em', color:'#111', lineHeight:1.1 }}>{champion}</div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
@@ -418,6 +521,8 @@ export default function LeaguePublic() {
           </div>
         )
       })()}
+
+      {history}
     </div>
   )
 }

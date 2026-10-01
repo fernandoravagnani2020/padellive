@@ -23,6 +23,17 @@ function LeaguesSection({ onSelect }: { onSelect: (id:string)=>void }) {
   }
   useEffect(() => { load() }, [])
 
+  const [confirmId, setConfirmId] = useState<string|null>(null)
+  const [statusFb, setStatusFb] = useState('')
+
+  async function setStatus(id: string, status: League['status']) {
+    const { error } = await supabase.from('leagues').update({ status }).eq('id', id)
+    setConfirmId(null)
+    if (error) { showFb(setStatusFb, '❌ ' + error.message); return }
+    showFb(setStatusFb, status === 'finished' ? '✓ Liga finalizada. Pasa al historial.' : '✓ Liga reactivada.')
+    load()
+  }
+
   async function create() {
     if (!name) { showFb(setFb, '⚠ Ingresá el nombre.'); return }
     const { data, error } = await supabase.from('leagues').insert({ name, season, description: desc || null }).select().single()
@@ -44,10 +55,25 @@ function LeaguesSection({ onSelect }: { onSelect: (id:string)=>void }) {
               <div style={{ fontWeight:600, fontSize:14 }}>{l.name}</div>
               <div style={{ fontSize:11, color:'#bbb' }}>{l.season} · {l.status === 'active' ? '🟢 Activa' : '⚪ Finalizada'}</div>
             </div>
-            <span style={{ fontSize:12, color:'#16a34a', fontWeight:600 }}>Gestionar →</span>
+            <div style={{ display:'flex', alignItems:'center', gap:10 }} onClick={e => e.stopPropagation()}>
+              {confirmId === l.id ? (
+                <>
+                  <span style={{ fontSize:11, color:'#888' }}>{l.status === 'active' ? '¿Finalizar?' : '¿Reactivar?'}</span>
+                  <button style={{ ...btn(l.status === 'active' ? '#dc2626' : '#16a34a'), padding:'5px 10px', fontSize:12 }}
+                    onClick={() => setStatus(l.id, l.status === 'active' ? 'finished' : 'active')}>Sí</button>
+                  <button style={{ ...btn('#999'), padding:'5px 10px', fontSize:12 }} onClick={() => setConfirmId(null)}>No</button>
+                </>
+              ) : (
+                <button onClick={() => setConfirmId(l.id)} style={{ background:'none', border:'1px solid rgba(0,0,0,0.1)', borderRadius:6, padding:'4px 10px', fontSize:11, fontWeight:600, color:'#888', cursor:'pointer', fontFamily:'inherit', whiteSpace:'nowrap' }}>
+                  {l.status === 'active' ? 'Finalizar liga' : 'Reactivar'}
+                </button>
+              )}
+              <span style={{ fontSize:12, color:'#16a34a', fontWeight:600, cursor:'pointer', whiteSpace:'nowrap' }} onClick={() => onSelect(l.id)}>Gestionar →</span>
+            </div>
           </div>
         ))}
       </div>
+      {statusFb && <p style={{ marginTop:-12, marginBottom:12, fontSize:12, color: statusFb.startsWith('❌') ? '#dc2626' : '#15803d' }}>{statusFb}</p>}
 
       <div style={{ background:'#f9fafb', border:'1px solid #e5e7eb', borderRadius:12, padding:16 }}>
         <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.1em', color:'#999', textTransform:'uppercase', marginBottom:12 }}>Nueva liga</div>
