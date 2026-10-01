@@ -119,6 +119,7 @@ function PlayoffsView({ rounds, matches, teams }: { rounds: Round[]; matches: Le
       {sortedRounds.map(round => {
         const rMatches = matches.filter(m => m.round_id === round.id)
         const phaseName = PHASE_LABELS[round.phase ?? ''] ?? round.label ?? round.phase
+        const isFinal = round.phase === 'final'
 
         return (
           <div key={round.id} style={{ background:'#fff', border:'1px solid rgba(0,0,0,0.08)', borderRadius:14, overflow:'hidden', boxShadow:'0 1px 4px rgba(0,0,0,0.04)' }}>
@@ -149,7 +150,7 @@ function PlayoffsView({ rounds, matches, teams }: { rounds: Round[]; matches: Le
                       <div style={{ fontWeight: homeWin ? 700 : 500, fontSize:14, color: isDone ? (homeWin ? '#111' : '#aaa') : '#111' }}>
                         {home?.name ?? '—'}
                       </div>
-                      {homeWin && <div style={{ fontSize:11, color:'#15803d', fontWeight:600, marginTop:2 }}>Clasificado ›</div>}
+                      {homeWin && <div style={{ fontSize:11, color: isFinal ? '#b45309' : '#15803d', fontWeight: isFinal ? 700 : 600, marginTop:2 }}>{isFinal ? '🏆 Campeón' : 'Clasificado ›'}</div>}
                     </div>
 
                     <div style={{ textAlign:'center', minWidth:56, padding:'0 8px' }}>
@@ -166,7 +167,7 @@ function PlayoffsView({ rounds, matches, teams }: { rounds: Round[]; matches: Le
                       <div style={{ fontWeight: awayWin ? 700 : 500, fontSize:14, color: isDone ? (awayWin ? '#111' : '#aaa') : '#111' }}>
                         {away?.name ?? '—'}
                       </div>
-                      {awayWin && <div style={{ fontSize:11, color:'#15803d', fontWeight:600, marginTop:2 }}>‹ Clasificado</div>}
+                      {awayWin && <div style={{ fontSize:11, color: isFinal ? '#b45309' : '#15803d', fontWeight: isFinal ? 700 : 600, marginTop:2 }}>{isFinal ? 'Campeón 🏆' : '‹ Clasificado'}</div>}
                     </div>
                   </div>
                 </div>
@@ -351,7 +352,7 @@ export default function LeaguePublic() {
         setLeagues(data)
         const active = data.filter((l: League) => l.status !== 'finished')
         setSelected(prev => prev && data.some((l: League) => l.id === prev) ? prev : (active[0]?.id ?? null))
-        loadChampions(data.filter((l: League) => l.status === 'finished').map((l: League) => l.id))
+        loadChampions(data.map((l: League) => l.id))
       }
       setLoading(false)
     }
@@ -402,7 +403,10 @@ export default function LeaguePublic() {
   const activeLeagues   = leagues.filter(l => l.status !== 'finished')
   const finishedLeagues = leagues.filter(l => l.status === 'finished')
   const isFinished = league?.status === 'finished'
-  const champion = league ? champions[league.id] : undefined
+  // Campeón de la liga abierta: se deriva de los datos cargados (se actualiza en vivo)
+  const finalRound  = rounds.find(r => r.phase === 'final' && r.league_id === selected)
+  const finalWinner = finalRound && matches.find(m => m.round_id === finalRound.id && m.winner_id)?.winner_id
+  const champion = (finalWinner && teams.find(t => t.id === finalWinner)?.name) || (league ? champions[league.id] : undefined)
 
   function openLeague(id: string | null) {
     setSelected(id)
@@ -485,7 +489,7 @@ export default function LeaguePublic() {
           {league?.name}
         </h1>
         {league?.description && <p style={{ fontSize:13, color:'#888', marginTop:6 }}>{league.description}</p>}
-        {isFinished && champion && (
+        {champion && (
           <div style={{ display:'inline-flex', alignItems:'center', gap:10, marginTop:14, padding:'10px 16px', borderRadius:12, background:'linear-gradient(135deg, #fef3c7, #fde68a)', border:'1px solid rgba(217,119,6,0.25)' }}>
             <span style={{ fontSize:22 }}>🏆</span>
             <div>
