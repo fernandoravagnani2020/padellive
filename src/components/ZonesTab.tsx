@@ -260,6 +260,21 @@ function MatchCard({ m, isMobile, getPairName, label }: {
   const p2Name = m.pair2_id ? getPairName(m.pair2_id) : 'Por definir'
   const isTBD = !m.pair1_id || !m.pair2_id
 
+  // Ganador: winner_pair_id o, si falta, quien ganó más sets
+  let winnerId: string | null = isDone ? m.winner_pair_id ?? null : null
+  if (isDone && !winnerId && Array.isArray(m.score)) {
+    const s1 = m.score.filter((s: any) => s.p1 > s.p2).length
+    const s2 = m.score.filter((s: any) => s.p2 > s.p1).length
+    winnerId = s1 > s2 ? m.pair1_id : s2 > s1 ? m.pair2_id : null
+  }
+  const pairStyle = (id: string | null) => {
+    if (!id) return { color:'#bbb', fontStyle:'italic' as const }
+    if (!winnerId) return { color:'#111' }
+    return id === winnerId
+      ? { color:'#15803d', fontWeight:700, background:'rgba(22,163,74,0.1)', padding:'1px 6px', borderRadius:4 }
+      : { color:'#999' }
+  }
+
   return (
     <div style={{
       display:'grid',
@@ -283,9 +298,9 @@ function MatchCard({ m, isMobile, getPairName, label }: {
           </span>
         )}
         <span>
-          <span style={{ color: m.pair1_id ? '#111' : '#bbb', fontStyle: m.pair1_id ? 'normal' : 'italic' }}>{p1Name}</span>
+          <span style={pairStyle(m.pair1_id)}>{winnerId && winnerId === m.pair1_id && '✓ '}{p1Name}</span>
           <span style={{ color:'#ccc', fontSize:11, margin:'0 6px' }}>vs</span>
-          <span style={{ color: m.pair2_id ? '#111' : '#bbb', fontStyle: m.pair2_id ? 'normal' : 'italic' }}>{p2Name}</span>
+          <span style={pairStyle(m.pair2_id)}>{winnerId && winnerId === m.pair2_id && '✓ '}{p2Name}</span>
         </span>
       </span>
       <div style={{ display:'flex', alignItems:'center', gap:6, justifyContent:'flex-end' }}>
