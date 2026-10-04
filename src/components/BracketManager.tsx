@@ -316,20 +316,50 @@ function SlotSelector({
   )
 }
 
+// Config inicial a partir de un partido ya publicado
+function configFromMatch(m: BMatch): MatchConfig {
+  const p1Placeholder = !!(m.pair1_source_zone_id && m.pair1_source_position)
+  const p2Placeholder = !!(m.pair2_source_zone_id && m.pair2_source_position)
+  return {
+    pair1_id: p1Placeholder ? null : m.pair1_id,
+    pair2_id: p2Placeholder ? null : m.pair2_id,
+    pair1_source_zone_id: m.pair1_source_zone_id ?? null,
+    pair1_source_position: m.pair1_source_position ?? null,
+    pair2_source_zone_id: m.pair2_source_zone_id ?? null,
+    pair2_source_position: m.pair2_source_position ?? null,
+    winnerToMatch: m.winner_goes_to_match ?? null,
+    winnerToSlot: (m.winner_goes_to_slot as 1 | 2 | null) ?? null,
+  }
+}
+
 function BracketSetup({
-  zones, pairs, zoneSizes, tournamentId, onSaved,
+  zones, pairs, zoneSizes, tournamentId, existing, onSaved,
 }: {
   zones: Zone[]
   pairs: Pair[]
   zoneSizes: Record<string, number>   // zone_id → cantidad de parejas
   tournamentId: string
+  existing: BMatch[]                  // cuadro ya publicado (vacío si no hay)
   onSaved: () => void
 }) {
-  const [matchCounts, setMatchCounts] = useState<Record<string, number>>({
-    roundof16: 4, quarters: 4, semis: 2, final: 1,
+  const [matchCounts, setMatchCounts] = useState<Record<string, number>>(() => {
+    if (!existing.length) return { roundof16: 4, quarters: 4, semis: 2, final: 1 }
+    const counts: Record<string, number> = {}
+    ROUND_ORDER.forEach(r => {
+      const orders = existing.filter(m => m.round === r).map(m => m.match_order ?? 0)
+      counts[r] = orders.length ? Math.max(...orders) : 0
+    })
+    return counts
   })
   // configs[round][matchIndex] = MatchConfig
-  const [configs, setConfigs] = useState<Record<string, MatchConfig[]>>({})
+  const [configs, setConfigs] = useState<Record<string, MatchConfig[]>>(() => {
+    const next: Record<string, MatchConfig[]> = {}
+    existing.forEach(m => {
+      if (!m.match_order) return
+      ;(next[m.round] ??= [])[m.match_order - 1] = configFromMatch(m)
+    })
+    return next
+  })
   const [saving, setSaving] = useState(false)
   const [fb, setFb] = useState('')
 
@@ -365,13 +395,20 @@ function BracketSetup({
     })
   }
 
-  // Slots ya tomados (sea pareja directa o placeholder de zona)
-  const assignedPairs = new Set<string>()
-  const assignedSlots = new Set<string>()  // formato "zoneId:position"
+  // Parejas ya tomadas por ronda (una pareja puede repetirse en rondas distintas al avanzar)
+  const assignedPairsByRound: Record<string, Set<string>> = {}
+  ROUND_ORDER.forEach(r => {
+    const set = new Set<string>()
+    ;(configs[r] ?? []).forEach(c => {
+      if (c.pair1_id) set.add(c.pair1_id)
+      if (c.pair2_id) set.add(c.pair2_id)
+    })
+    assignedPairsByRound[r] = set
+  })
+  // Placeholders de zona ya tomados (formato "zoneId:position")
+  const assignedSlots = new Set<string>()
   ROUND_ORDER.forEach(r => {
     (configs[r] ?? []).forEach(c => {
-      if (c.pair1_id) assignedPairs.add(c.pair1_id)
-      if (c.pair2_id) assignedPairs.add(c.pair2_id)
       if (c.pair1_source_zone_id && c.pair1_source_position) assignedSlots.add(`${c.pair1_source_zone_id}:${c.pair1_source_position}`)
       if (c.pair2_source_zone_id && c.pair2_source_position) assignedSlots.add(`${c.pair2_source_zone_id}:${c.pair2_source_position}`)
     })
@@ -381,6 +418,7 @@ function BracketSetup({
   const totalMatches = activeRounds.reduce((a, r) => a + matchCounts[r], 0)
 
   async function handleSave() {
+    if (existing.length) return handleUpdate()
     setSaving(true)
 
     // Borrar cuadro anterior
@@ -420,6 +458,83 @@ function BracketSetup({
 
     setSaving(false)
     showFb(`✓ Cuadro publicado: ${toInsert.length} partidos.`)
+    onSaved()
+  }
+
+  // Cuadro ya iniciado: actualiza solo lo que cambió, conservando resultados y horarios
+  async function handleUpdate() {
+    setSaving(true)
+    const errors: string[] = []
+    let changed = 0
+
+    const toDelete = existing
+      .filter(m => !activeRounds.includes(m.round) || (m.match_order ?? 0) > matchCounts[m.round])
+      .map(m => m.id)
+    if (toDelete.length) {
+      const { error } = await supabase.from('matches').delete().in('id', toDelete)
+      if (error) errors.push(error.message)
+      changed += toDelete.length
+    }
+
+    const toInsert: any[] = []
+    for (const round of activeRounds) {
+      for (let i = 0; i < matchCounts[round]; i++) {
+        const c = configs[round]?.[i]
+        const fields = {
+          pair1_source_zone_id: c?.pair1_source_zone_id ?? null,
+          pair1_source_position: c?.pair1_source_position ?? null,
+          pair2_source_zone_id: c?.pair2_source_zone_id ?? null,
+          pair2_source_position: c?.pair2_source_position ?? null,
+          winner_goes_to_match: c?.winnerToMatch ?? null,
+          winner_goes_to_slot: c?.winnerToSlot ?? null,
+        }
+        const m = existing.find(x => x.round === round && x.match_order === i + 1)
+        if (!m) {
+          toInsert.push({
+            tournament_id: tournamentId, zone_id: null, round, match_order: i + 1,
+            pair1_id: c?.pair1_id ?? null, pair2_id: c?.pair2_id ?? null,
+            ...fields, status: 'upcoming',
+          })
+          continue
+        }
+
+        // Si el placeholder no cambió, se mantiene la pareja ya resuelta
+        const samePh1 = fields.pair1_source_zone_id === (m.pair1_source_zone_id ?? null) && fields.pair1_source_position === (m.pair1_source_position ?? null)
+        const samePh2 = fields.pair2_source_zone_id === (m.pair2_source_zone_id ?? null) && fields.pair2_source_position === (m.pair2_source_position ?? null)
+        const pair1_id = c?.pair1_id ?? (fields.pair1_source_zone_id && samePh1 ? m.pair1_id : null)
+        const pair2_id = c?.pair2_id ?? (fields.pair2_source_zone_id && samePh2 ? m.pair2_id : null)
+
+        const patch: Record<string, any> = {}
+        if (pair1_id !== m.pair1_id) patch.pair1_id = pair1_id
+        if (pair2_id !== m.pair2_id) patch.pair2_id = pair2_id
+        ;(Object.keys(fields) as (keyof typeof fields)[]).forEach(k => {
+          if (fields[k] !== ((m as any)[k] ?? null)) patch[k] = fields[k]
+        })
+        if (!Object.keys(patch).length) continue
+
+        // Si cambian las parejas de un partido con resultado, el resultado ya no vale
+        if ((('pair1_id' in patch) || ('pair2_id' in patch)) && (m.winner_pair_id || m.status === 'done')) {
+          patch.winner_pair_id = null
+          patch.score = null
+          patch.status = 'upcoming'
+        }
+        const { error } = await supabase.from('matches').update(patch).eq('id', m.id)
+        if (error) errors.push(error.message)
+        changed++
+      }
+    }
+
+    if (toInsert.length) {
+      const { error } = await supabase.from('matches').insert(toInsert)
+      if (error) errors.push(error.message)
+      changed += toInsert.length
+    }
+
+    await supabase.rpc('sync_bracket_pairs', { p_tournament_id: tournamentId })
+
+    setSaving(false)
+    if (errors.length) { showFb('❌ ' + errors[0]); return }
+    showFb(changed ? `✓ Cuadro actualizado (${changed} partido${changed > 1 ? 's' : ''}).` : 'Sin cambios.')
     onSaved()
   }
 
@@ -490,7 +605,7 @@ function BracketSetup({
                         zones={zones}
                         zoneSizes={zoneSizes}
                         pairs={pairs}
-                        assignedPairs={assignedPairs}
+                        assignedPairs={assignedPairsByRound[round]}
                         assignedSlots={assignedSlots}
                         currentValue={slotValue(c, 1)}
                       />
@@ -503,7 +618,7 @@ function BracketSetup({
                         zones={zones}
                         zoneSizes={zoneSizes}
                         pairs={pairs}
-                        assignedPairs={assignedPairs}
+                        assignedPairs={assignedPairsByRound[round]}
                         assignedSlots={assignedSlots}
                         currentValue={slotValue(c, 2)}
                       />
@@ -543,7 +658,9 @@ function BracketSetup({
       {totalMatches > 0 && (
         <button onClick={handleSave} disabled={saving}
           className="w-full bg-green-600 text-white font-['Bebas_Neue', sans-serif] text-lg font-bold py-3 rounded-xl hover:bg-green-700 transition-colors disabled:opacity-40">
-          {saving ? 'Guardando...' : `Publicar cuadro (${totalMatches} partidos) →`}
+          {saving ? 'Guardando...'
+            : existing.length ? 'Guardar cambios →'
+            : `Publicar cuadro (${totalMatches} partidos) →`}
         </button>
       )}
       {fb && (
@@ -678,6 +795,7 @@ export default function BracketManager({ tournamentId, zones, pairs, courtsCount
           pairs={pairs}
           zoneSizes={zoneSizes}
           tournamentId={tournamentId}
+          existing={bracketMatches}
           onSaved={() => { load(); onRefresh() }}
         />
       )}
