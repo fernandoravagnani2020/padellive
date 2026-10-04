@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { propagateBracketWinners } from '../lib/bracket'
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -119,21 +120,7 @@ function EditPanel({
     if (error) { setSaving(false); showFb('❌ ' + error.message); return }
 
     // Avanzar al slot configurado en winner_goes_to_match / winner_goes_to_slot
-    if (m.winner_goes_to_match && m.winner_goes_to_slot) {
-      const nextRound = ROUND_ORDER[ROUND_ORDER.indexOf(m.round) + 1]
-      if (nextRound) {
-        const slot = m.winner_goes_to_slot === 1 ? 'pair1_id' : 'pair2_id'
-        const { data: dest } = await supabase.from('matches')
-          .select('id')
-          .eq('tournament_id', tournamentId)
-          .eq('round', nextRound)
-          .eq('match_order', m.winner_goes_to_match)
-          .maybeSingle()
-        if (dest?.id) {
-          await supabase.from('matches').update({ [slot]: winnerId }).eq('id', dest.id)
-        }
-      }
-    }
+    await propagateBracketWinners(tournamentId)
 
     setSaving(false)
     showFb('✓ Resultado guardado.')
@@ -531,6 +518,7 @@ function BracketSetup({
     }
 
     await supabase.rpc('sync_bracket_pairs', { p_tournament_id: tournamentId })
+    await propagateBracketWinners(tournamentId)
 
     setSaving(false)
     if (errors.length) { showFb('❌ ' + errors[0]); return }
@@ -704,6 +692,8 @@ export default function BracketManager({ tournamentId, zones, pairs, courtsCount
 
   async function load() {
     setLoading(true)
+    // Por si algún resultado se cargó por otra vía y el ganador no avanzó
+    await propagateBracketWinners(tournamentId)
     const [{ data: st }, { data: bm }] = await Promise.all([
       supabase.from('standings')
         .select('zone_id,pair_id,position,points')

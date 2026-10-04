@@ -5,6 +5,7 @@ import PairsManager from '../components/PairsManager'
 import FixtureBuilder from '../components/FixtureBuilder'
 import BracketManager from '../components/BracketManager'
 import { sendMatchPush } from '../lib/push'
+import { propagateBracketWinners } from '../lib/bracket'
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -391,6 +392,8 @@ export default function Admin() {
 
     if (error) setFb4('❌ ' + error.message)
     else {
+      // Si es un partido del cuadro, pasar el ganador a la siguiente ronda
+      if (!match.zone_id) await propagateBracketWinners(selectedTId)
       setFb4(editingMatch ? '✓ Resultado actualizado.' : '✓ Resultado guardado.')
 
       // Notificación push (solo en partidos nuevos, no en ediciones)
