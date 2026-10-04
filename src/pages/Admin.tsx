@@ -509,7 +509,11 @@ export default function Admin() {
     if (!liveMatchId) { setFb5a('⚠ Seleccioná un partido.'); return }
     const { error } = await supabase.from('matches').update({ status: liveStatus }).eq('id', liveMatchId)
     if (error) setFb5a('❌ ' + error.message)
-    else { setFb5a('✓ Estado actualizado.'); loadTournamentData(selectedTId) }
+    else {
+      setFb5a('✓ Estado actualizado.')
+      if (liveStatus === 'done') setLiveMatchId('')
+      loadTournamentData(selectedTId)
+    }
   }
 
   async function handleSetTourneyStatus() {
@@ -1264,7 +1268,7 @@ export default function Admin() {
               <Field label="Partido">
                 <select className={sel} value={liveMatchId} onChange={e => setLiveMatchId(e.target.value)}>
                   <option value="">— Elegí un partido —</option>
-                  {matches.map(m => (
+                  {matches.filter(m => m.status !== 'done').map(m => (
                     <option key={m.id} value={m.id}>
                       {m.scheduled_time?.slice(0,5)} · {getPairName(m.pair1_id)} vs {getPairName(m.pair2_id)}
                     </option>
