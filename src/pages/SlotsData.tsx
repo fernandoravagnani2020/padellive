@@ -12,9 +12,10 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
+import { slotsForDay } from '../lib/horarios'
 
 interface DaySlots { [time: string]: string | null }
-interface Day { day: string; date: string; month: string; year: string; slots: DaySlots }
+interface Day { day: string; date: string; month: string; year: string; slots: DaySlots; timeSlots?: string[] }
 interface Precios { semana: { [t: string]: number }; finDeSemana: { [t: string]: number } }
 interface DescuentoConfig { activo: boolean | string | number; porcentaje: number; minutosAntes: number }
 interface ScheduleData {
@@ -23,7 +24,6 @@ interface ScheduleData {
 }
 
 const API_URL    = 'https://admin-reservas-seven.vercel.app/exec'
-const TIME_SLOTS = ['09:30','11:00','12:30','14:30','16:00','17:30','19:00','20:30','22:00']
 const DIAS_FDS   = ['SÁBADO','DOMINGO']
 
 function pad(n: string) { return n.padStart(2, '0') }
@@ -55,7 +55,7 @@ type Estado = 'libre' | 'reservado' | 'en_curso' | 'finalizado'
 
 export default function SlotsData() {
   const [data, setData] = useState<ScheduleData>({
-    week: [], timeSlots: TIME_SLOTS, promociones: {}, precios: null, descuentoConfig: null,
+    week: [], timeSlots: [], promociones: {}, precios: null, descuentoConfig: null,
   })
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState('')
@@ -96,7 +96,7 @@ export default function SlotsData() {
 
   for (const day of data.week) {
     const fecha = `${day.year}-${pad(day.month)}-${pad(day.date)}`
-    for (const time of (data.timeSlots.length ? data.timeSlots : TIME_SLOTS)) {
+    for (const time of slotsForDay(day)) {
       const enCurso  = turnoEnCurso(fecha, time)
       const fin      = !enCurso && turnoFinalizado(fecha, time)
       const ocupado  = !!day.slots[time]

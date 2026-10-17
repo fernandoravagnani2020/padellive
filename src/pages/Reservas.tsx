@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
+import { slotsForDay } from '../lib/horarios'
 
 interface DaySlots { [time: string]: string | null }
-interface Day { day: string; date: string; month: string; year: string; slots: DaySlots }
+interface Day { day: string; date: string; month: string; year: string; slots: DaySlots; timeSlots?: string[] }
 interface Precios { semana: { [t: string]: number }; finDeSemana: { [t: string]: number } }
 interface DescuentoConfig { activo: boolean | string | number; porcentaje: number; minutosAntes: number }
 interface ScheduleData {
@@ -10,7 +11,6 @@ interface ScheduleData {
 }
 
 const API_URL    = 'https://admin-reservas-seven.vercel.app/exec'
-const TIME_SLOTS = ['09:30','11:00','12:30','14:30','16:00','17:30','19:00','20:30','22:00']
 const MONTH_NAMES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 const DIAS_FDS   = ['SÁBADO','DOMINGO']
 
@@ -162,7 +162,7 @@ function SlotCard({ day, time, data, compact = false }: { day: Day; time: string
 
 export default function Reservas() {
   const [data, setData] = useState<ScheduleData>({
-    week: [], timeSlots: TIME_SLOTS, promociones: {}, precios: null, descuentoConfig: null,
+    week: [], timeSlots: [], promociones: {}, precios: null, descuentoConfig: null,
   })
   const [loading,  setLoading]  = useState(true)
   const [error,    setError]    = useState('')
@@ -237,7 +237,7 @@ export default function Reservas() {
                 </div>
               </div>
               <div style={{ padding: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {TIME_SLOTS.map(time => <SlotCard key={time} day={day} time={time} data={data} compact />)}
+                {slotsForDay(day).map(time => <SlotCard key={time} day={day} time={time} data={data} compact />)}
               </div>
             </div>
           )
@@ -282,7 +282,7 @@ export default function Reservas() {
       {/* Slots del día activo */}
       {activeDay && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {TIME_SLOTS.map(time => <SlotCard key={time} day={activeDay} time={time} data={data} />)}
+          {slotsForDay(activeDay).map(time => <SlotCard key={time} day={activeDay} time={time} data={data} />)}
         </div>
       )}
       {legend}

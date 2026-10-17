@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 notify_slots.py — Manda un push notification con los turnos disponibles del día
-desde las 14:30, llamando a la Edge Function de Supabase 'send-match-push'.
+desde el primer turno de la tarde (14:30 hasta el 31/10/2026, 14:00 desde
+el 01/11/2026), llamando a la Edge Function de Supabase 'send-match-push'.
 
 Uso:
     python3 notify_slots.py
@@ -23,9 +24,21 @@ def now_art() -> datetime:
 
 # ── API de turnos (Vercel + Supabase) ────────────────────────────────────────
 API_URL = 'https://admin-reservas-seven.vercel.app/exec'
-TIME_SLOTS  = ['09:30','11:00','12:30','14:30','16:00','17:30','19:00','20:30','22:00']
 DIAS_FDS    = ['SÁBADO', 'DOMINGO']
-HORA_INICIO = '14:30'
+
+# Grilla de turnos (90 min) según la fecha. Mantener igual que genera_flyer.py y admin-reservas.
+HORARIOS = [
+    {'desde': '0000-01-01', 'inicio_flyer': '14:30',
+     'slots': ['09:30','11:00','12:30','14:30','16:00','17:30','19:00','20:30','22:00']},
+    {'desde': '2026-11-01', 'inicio_flyer': '14:00',
+     'slots': ['09:30','11:00','12:30','14:00','15:30','17:00','18:30','20:00','21:30','23:00']},
+]
+
+def horario_for_date(fecha: str) -> dict:
+    return [h for h in HORARIOS if h['desde'] <= fecha][-1]
+
+def hora_inicio_hoy() -> str:
+    return horario_for_date(now_art().strftime('%Y-%m-%d'))['inicio_flyer']
 
 def _slot_end(fecha: str, hora: str) -> datetime:
     y, m, d = map(int, fecha.split('-'))
@@ -61,8 +74,9 @@ def fetch_libre_slots():
         fecha = f"{day['year']}-{day['month'].zfill(2)}-{day['date'].zfill(2)}"
         if datetime.strptime(fecha, '%Y-%m-%d').date() != hoy:
             continue
-        for hora in TIME_SLOTS:
-            if hora < HORA_INICIO: continue
+        horario = horario_for_date(fecha)
+        for hora in day.get('timeSlots') or horario['slots']:
+            if hora < horario['inicio_flyer']: continue
             if turno_en_curso(fecha, hora) or turno_finalizado(fecha, hora): continue
             if day['slots'].get(hora): continue
             out.append({
@@ -96,7 +110,7 @@ def send_push(title: str, body: str, url: str = '/', tag: str = 'turnos-diarios'
 
 
 if __name__ == '__main__':
-    print(f"[{now_art().strftime('%Y-%m-%d %H:%M')}] Buscando turnos libres del día desde {HORA_INICIO}...")
+    print(f"[{now_art().strftime('%Y-%m-%d %H:%M')}] Buscando turnos libres del día desde {hora_inicio_hoy()}...")
     try:
         libres = fetch_libre_slots()
     except Exception as e:
@@ -104,7 +118,7 @@ if __name__ == '__main__':
         sys.exit(1)
 
     if not libres:
-        print("No hay turnos libres hoy desde 14:30 — no se envía push.")
+        print(f"No hay turnos libres hoy desde {hora_inicio_hoy()} — no se envía push.")
         sys.exit(0)
 
     horas_str = ' · '.join(s['hora'] + ' hs' for s in libres)
